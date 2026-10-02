@@ -1,0 +1,50 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "xjyutping-Tool",
+  "mainBinaryName": "xjyutping-Tool",
+  "version": "1.0.0",
+  "identifier": "io.github.beyond3345.xjyutping-tool",
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "devUrl": "http://localhost:1420",
+    "beforeBuildCommand": "npm run build",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "xjyutping-Tool",
+        "width": 1280,
+        "height": 820,
+        "minWidth": 760,
+        "minHeight": 480,
+        "zoomHotkeysEnabled": true
+      }
+    ],
+    "security": {
+      "csp": null,
+      "assetProtocol": {
+        "enable": true,
+        "scope": ["$RESOURCE/texbundle/I.Ming-8.10.ttf", "$RESOURCE/texbundle/NotoSerifCJKhk-Regular.otf"]
+      }
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["app", "dmg", "nsis"],
+    "category": "Education",
+    "shortDescription": "Jyutping above Cantonese text, and vocabulary lists for class",
+    "copyright": "MIT (app); see LICENSE for the bundled data, fonts and TeX files",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "externalBin": ["binaries/tectonic"],
+    "resources": { "resources/texbundle/": "texbundle/" },
+    "macOS": { "minimumSystemVersion": "13.3" },
+    "windows": { "nsis": { "installMode": "currentUser" } }
+  }
+}

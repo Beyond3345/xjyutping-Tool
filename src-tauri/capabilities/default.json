@@ -1,0 +1,14 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "What the xjyutping-Tool window may call; files and the PDF go through the app's own commands",
+  "windows": ["main"],
+  "permissions": [
+    "core:default",
+    "core:window:allow-set-title",
+    "core:window:allow-set-fullscreen",
+    "core:webview:allow-set-webview-zoom",
+    "dialog:allow-message",
+    "store:default"
+  ]
+}

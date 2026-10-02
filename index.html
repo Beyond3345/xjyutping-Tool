@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>xjyutping-Tool</title>
+    <link rel="stylesheet" href="/src/style.css" />
+    <script type="module" src="/src/main.ts" defer></script>
+  </head>
+  <body>
+    <header id="bar">
+      <input id="title" placeholder="Title" />
+      <input id="author" placeholder="Author" />
+      <input id="date" placeholder="Date (today)" />
+      <span id="audience" role="radiogroup" title="The students' language decides the blank column">
+        <label><input type="radio" name="audience" value="en" checked /> English</label>
+        <label><input type="radio" name="audience" value="zh" /> 普通話</label>
+      </span>
+      <span class="gap"></span>
+      <button id="new" title="Start a new lesson">New</button>
+      <button id="open">Open…</button>
+      <button id="save" title="Save (Ctrl/Cmd+S)">Save</button>
+      <button id="saveas">Save As…</button>
+      <span class="gap"></span>
+      <button id="smaller" title="Smaller text">A−</button>
+      <button id="bigger" title="Larger text">A+</button>
+      <button id="present" title="Show only the annotated text (Esc to leave)">Present</button>
+      <button id="corrections">Corrections (0)</button>
+      <button id="generate" class="primary" disabled>Generate PDF</button>
+    </header>
+    <div id="status" role="status">Loading dictionary…</div>
+    <main>
+      <textarea id="input" lang="zh-HK" spellcheck="false"
+        placeholder="One word or sentence per line, e.g.&#10;銀行&#10;我哋聽日去銀行。"></textarea>
+      <section id="output" lang="zh-HK"></section>
+    </main>
+    <div id="popover" hidden></div>
+    <dialog id="list"></dialog>
+  </body>
+</html>

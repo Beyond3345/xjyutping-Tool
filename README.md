@@ -162,10 +162,19 @@ Tectonic and the fonts, each checked against a pinned sha256 and cached in
 `.downloads/`. The environment variables `XJYUTPING_PY` and `XJYUTPING_TEX`
 point it at other copies of the two repositories.
 
-The Windows installer is built by GitHub Actions
-(`.github/workflows/build.yml`), since Tauri cannot build it on a Mac. The
-workflow checks out xjyutping-py and xjyutping-tex at the commits given at its
-top, and runs when it is started by hand or when a `v*` tag is pushed.
+The released installers are built by GitHub Actions
+(`.github/workflows/build.yml`), since Tauri cannot build the Windows one on a
+Mac. The workflow checks out xjyutping-py and xjyutping-tex at the commits
+given at its top and builds the Windows installer and the macOS `.dmg`, each
+checked with the self-test described under Testing.
+
+1. Bump the version in `package.json`, `src-tauri/Cargo.toml` and `src-tauri/tauri.conf.json`, and add its entry to `CHANGELOG.md`
+2. Commit, then push a tag such as `v1.0.0`
+
+The tag creates a draft release with the notes of that version from
+`CHANGELOG.md`, both installers are attached to it, and it is published once
+both builds have passed. Started by hand, the workflow only builds, and the
+installers are kept as artifacts of the run.
 
 ### Changing the PDF template
 
