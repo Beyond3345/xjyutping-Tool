@@ -1,6 +1,6 @@
 [package]
 name = "xjyutping-tool"
-version = "1.0.0"
+version = "1.1.0"
 description = "Jyutping teaching tool built on xjyutping"
 authors = ["the xjyutping authors"]
 license = "MIT"

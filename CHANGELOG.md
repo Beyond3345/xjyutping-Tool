@@ -23,6 +23,27 @@ human or agent.
 There are no unreleased changes yet. Add new entries here under
 `### Added`, `### Changed`, `### Fixed` and so on.
 
+## [1.1.0] - 2026-10-03
+
+### Added
+
+- A third choice for the students' language, Cantonese (廣東話). The blank
+  column and the lines of the sentences are then headed 筆記, for notes, and the
+  fixed text of the PDF is Chinese.
+- Tone chart: a vocabulary list can start with a chart of the six tones, five
+  pitch levels with the tones as coloured arrows (55, 35, 33, 21, 13, 22),
+  labelled with the traditional names, or for English speakers with English
+  names and the traditional ones ("Tone 1 (陰平) High level"). The checkbox is
+  kept in the lesson, and a new lesson keeps the previous choice.
+- A new app icon, the character 粵 in brush ink on a white tile.
+
+### Changed
+
+- Sentences are no longer set in a table. Each is written out with its
+  Jyutping above the characters and one to three lines under it, headed
+  English, 普通話 or 筆記, for the translation or notes, since the plain Jyutping
+  of a long sentence made the table crowded.
+
 ## [1.0.0] - 2026-10-02
 
 ### Added
@@ -65,9 +86,10 @@ This repository holds the teaching tool, and the table below lists its files.
 | --- | --- |
 | `index.html`, `src/main.ts`, `src/style.css` | The interface: lesson fields, the two panes, the correction editor, files and the PDF (Section 2.4). |
 | `py/app.py` | The bridge to xjyutping-py: readings with corrections, sorting, candidates, checks and the LaTeX source (Sections 2.2 and 2.3). |
-| `py/test_app.py` | The tests of `app.py` (36 tests). |
+| `py/test_app.py` | The tests of `app.py` (39 tests). |
 | `py/glyphs.txt` | The code points that I.Ming or Noto Serif CJK HK contain, made once by `scripts/glyphs.py`. |
 | `src-tauri/src/lib.rs` | The Rust commands: compile with Tectonic, open and save lessons, export corrections, and the self-test (Section 2.7). |
+| `src-tauri/icons/icon-source.png` | The source of every app icon (Section 6.4). |
 | `src-tauri/tauri.conf.json`, `capabilities/default.json` | The app, its bundle (sidecar, resources) and what the window may call. |
 | `scripts/vendor.mjs` | Assembles the generated parts before every build (Section 2.6). |
 | `scripts/harvest_bundle.py` | Rebuilds `tex/tl2024/` from the template (Section 2.5). |
@@ -295,7 +317,72 @@ scripts/compile-check.sh
 cd src-tauri && cargo test
 ```
 
-The first runs the 36 tests of `app.py`, the second compiles the fixture for
+The first runs the 39 tests of `app.py`, the second compiles the fixture for
 both audiences with the bundled engine from an empty cache without network
 and renders the pages to `.downloads/check/`. The third tests the Rust
 helpers.
+
+## 6. Version 1.1.0 (2026-10-03)
+
+### 6.1 The request
+
+After 1.0.0, the user asked for a third choice of the students' language,
+Cantonese speakers, whose blank column is headed 筆記; for the attached brush
+character 粵 on white as the logo; for an option to start each vocabulary
+list with a version of an attached chart of the six tones, without adding
+much to the TeX engine; and, before the release, for sentences without the
+table, since their plain Jyutping made it crowded. The questions asked gave
+the chart as drawn (levels 1–5, 55 35 33 21 13 22, the colours of the image),
+English names followed by the traditional ones in English lessons, a white
+tile with rounded corners for the icon and a release as 1.1.0.
+
+### 6.2 Cantonese speakers and the sentences
+
+The audience is now one of `en`, `zh` and `yue` (`_audience` in `app.py`,
+with `en` as fallback for anything else). `TEXT['yue']` is the Chinese text
+of `zh` with `blank: '筆記'`, and the date is written in Chinese for both. In
+the UI it is the third radio button, 廣東話.
+
+Sentences are written by `_sentence`: the sentence in `\Large` with its
+readings through `\xjyutping{…}{…}`, as before, then the label (English:,
+普通話： or 筆記：) and one writing line per 15 characters, at most three, all
+in a `minipage` so that a sentence never splits across pages. The plain
+Jyutping of a sentence is no longer printed, since the rubies carry it.
+
+### 6.3 The tone chart
+
+The chart is drawn by TeX in `picture` mode with `pict2e` (arrows at any
+slope, thick lines) and `color`, which the preamble loads only when the
+lesson asks for the chart. We chose this over TikZ, which would have added
+several MB of files to the bundle, and over a prepared image, which would
+have needed `graphicx` and a separate file to keep in step with the fonts.
+The harvest with the chart added eight files (`pict2e.sty`, `pict2e.cfg`,
+`p2e-xetex.def`, `color.sty`, `color.cfg`, `xetex.def`, `trig.sty` and
+`mathcolor.ltx`), and `tex/tl2024/` grew from 15.6 to 15.7 MB.
+
+`TONES` in `app.py` holds, for each tone, the start and end pitch level, where
+the arrow starts and ends across the chart, its colour, the positions of the
+Chinese and of the two-line English label and the names. Each label sits on a
+white box, so that the dotted levels do not run through it. The positions
+were set by rendering both versions, so a change to the names or the font
+should be checked the same way (`scripts/compile-check.sh`). The fixture
+lesson has the chart on, so the harvest and the compile check cover it, and
+so does the self-test of the built app.
+
+### 6.4 The icon
+
+`src-tauri/icons/icon-source.png` was made once from the attached image with
+PIL. The paper texture was whitened (grey levels above 200 set to white, the
+ink kept), the ink cropped to its bounding box with a margin, and the
+character centred at 78% of a white tile of 824 pixels with corners of 185
+pixels on a transparent 1024 by 1024 canvas, with a faint shadow, as macOS
+icons are drawn. `npx tauri icon` then made every size, and the Android and
+iOS sets it also writes were deleted. The character still reads at 32
+pixels.
+
+### 6.5 Tests
+
+`py/test_app.py` has three more tests: the Cantonese audience, the tone chart
+only when asked (with the English and the Chinese labels), and the sentences
+with their lines for each language. `scripts/compile-check.sh` now compiles
+the fixture for all three audiences.

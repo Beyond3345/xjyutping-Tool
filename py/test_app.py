@@ -149,7 +149,7 @@ def test_syllables_match_cjk_count():
     # make_tex refuses lines with a character that has no reading (e.g. 乄)
     lines = [r['line'] for r in rows('\n'.join(lines)) if all(it['r'] for it in r['items'] if it['cjk'])]
     body = tex('\n'.join(lines))
-    for m in re.finditer(r'\\xjyutping\{(.*?)\}\{([a-z0-9 ]*)\} &', body):
+    for m in re.finditer(r'\\xjyutping\{(.*?)\}\{([a-z0-9 ]*)\}', body):
         entry = re.sub(r'\\[a-z]+\{\}|\\.|-\{\}', '', m.group(1))
         count = sum(1 for c in entry if app._is_cjk(c, J.annotate(c)[0][1]))
         assert count == len(m.group(2).split()), m.group(0)
@@ -185,7 +185,8 @@ def test_audience_sections_and_duplicates():
 
 
 def test_jyutping_cell_keeps_punctuation_and_latin():
-    body = tex('你好，我係 Peter（陳生）。')
+    line = '你好，我係 Peter（陳生）。'
+    body = tex(line, kinds={line: 'word'})
     row = next(l for l in body.splitlines() if l.startswith('\\xjyutping{'))
     assert row.split(' & ')[1] == 'nei5 hou2, ngo5 hai6 Peter (can4 saang1).'
 
@@ -220,10 +221,41 @@ def test_clean_survives_malformed_parts():
 def test_control_characters_and_ligatures_are_escaped():
     body = tex('好\x0b好 <<書>>,,', title='Lesson\x0b1')
     assert '\x0b' not in body and r'\title{Lesson 1}' in body
-    row = next(l for l in body.splitlines() if l.startswith('\\xjyutping{'))
-    assert row.startswith(r'\xjyutping{好 好 <{}<書>{}>,{},}{hou2 hou2 syu1}')
+    assert r'\xjyutping{好 好 <{}<書>{}>,{},}{hou2 hou2 syu1}' in body
 
 
 def test_quotes_in_the_jyutping_cell():
-    row = next(l for l in tex('佢話「你好」。').splitlines() if l.startswith('\\xjyutping{'))
+    row = next(l for l in tex('佢話「你好」。', kinds={'佢話「你好」。': 'word'}).splitlines()
+               if l.startswith('\\xjyutping{'))
     assert row.split(' & ')[1] == app.escape('keoi5 waa6 "nei5 hou2".')
+
+
+def test_cantonese_audience():
+    yue = tex('好\n銀行', audience='yue')
+    assert '\\section*{單字}' in yue and '字 & 粵拼 & 筆記' in yue and '詞彙 & 粵拼 & 筆記' in yue
+    assert re.search(r'\\date\{\d{4}年\d+月\d+日\}', yue) and '普通話' not in yue
+    got = json.loads(app.clean(json.dumps(lesson('x', audience='yue', toneChart='yes'))))['lesson']
+    assert got['audience'] == 'yue' and got['toneChart'] is False
+
+
+def test_tone_chart_only_when_asked():
+    plain = tex('好')
+    assert 'pict2e' not in plain and '\\tonechart' not in plain
+    en = tex('好', toneChart=True)
+    assert '\\usepackage{pict2e}' in en and en.index('\\maketitle') < en.index('\\section*{The six tones}\n\\tonechart')
+    assert en.count('\\vector(') == 6 and 'Tone 2 (陰上)\\\\High rising' in en and '{\\small High}' in en
+    zh = tex('好', audience='zh', toneChart=True)
+    assert '\\section*{聲調}' in zh and '\\small 2 陰上}' in zh and 'High rising' not in zh and '{\\small 高}' in zh
+
+
+def test_sentences_are_written_out_with_lines_for_notes():
+    short, long = '我哋去銀行。', '今日天氣好好，我哋一齊去公園散步，見到好多小朋友喺度玩。'
+    for audience, label in (('en', 'English:'), ('zh', '普通話：'), ('yue', '筆記：')):
+        body = tex(f'{short}\n{long}', audience=audience)
+        part = body[body.index('\\section*{'):]
+        assert 'longtable' not in part and 'Sentence &' not in part and '句子 &' not in part
+        assert part.count('\\begin{minipage}') == 2 and part.count('{\\small ' + label + '}\\enspace\\hrulefill') == 2
+        assert '\\Large\\xjyutping{我哋去銀行。}{ngo5 dei6 heoi3 ngan4 hong4}' in part
+    # one writing line per 15 characters, at most three
+    blocks = tex(f'{short}\n{long}').split('\\begin{minipage}')[1:]
+    assert [b.count('\\hrulefill') for b in blocks] == [1, 2]

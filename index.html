@@ -12,10 +12,12 @@
       <input id="title" placeholder="Title" />
       <input id="author" placeholder="Author" />
       <input id="date" placeholder="Date (today)" />
-      <span id="audience" role="radiogroup" title="The students' language decides the blank column">
+      <span id="audience" role="radiogroup" title="The students' language decides the blank column: English, 普通話 or 筆記 for Cantonese speakers">
         <label><input type="radio" name="audience" value="en" checked /> English</label>
         <label><input type="radio" name="audience" value="zh" /> 普通話</label>
+        <label><input type="radio" name="audience" value="yue" /> 廣東話</label>
       </span>
+      <label title="Start the PDF with a chart of the six tones"><input type="checkbox" id="toneChart" /> Tone chart</label>
       <span class="gap"></span>
       <button id="new" title="Start a new lesson">New</button>
       <button id="open">Open…</button>

@@ -16,5 +16,6 @@
  },
  "kinds": {
   "食咗飯未": "sentence"
- }
+ },
+ "toneChart": true
 }

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Compiles the fixture lesson for both audiences with the bundled Tectonic and
+# Compiles the fixture lesson for the three audiences with the bundled Tectonic and
 # texbundle, from an empty cache (and without network where sandbox-exec exists),
 # and fails on a TeX error, a missing log or a syllable count mismatch.
 #   scripts/compile-check.sh                 also renders PNGs with gs for a visual check
@@ -20,7 +20,7 @@ NET=()
 if command -v sandbox-exec >/dev/null; then NET=(sandbox-exec -p '(version 1)(allow default)(deny network*)'); fi
 
 status=0
-for audience in en zh; do
+for audience in en zh yue; do
   "$PYTHON" -c "
 import json, sys
 sys.path[:0] = [sys.argv[3], 'py']
@@ -42,7 +42,7 @@ open(sys.argv[2], 'w', encoding='utf8').write(app.make_tex(json.dumps(lesson)))
 done
 
 if [ "${1:-}" != "--engine-only" ] && command -v gs >/dev/null; then
-  for audience in en zh; do
+  for audience in en zh yue; do
     gs -q -dNOPAUSE -dBATCH -sDEVICE=png16m -r110 -sOutputFile="$OUT/$audience-%d.png" "$OUT/$audience.pdf"
   done
   echo "PNGs in $OUT"

@@ -1,9 +1,9 @@
 """Rebuilds tex/tl2024/, the TeX Live 2024 files the app's template needs.
 
-The fixture lesson is compiled for both audiences by Tectonic against the
-official TeX Live 2024 bundle (fetched by range requests, so only the files
-used are downloaded), and the files Tectonic cached are copied into one flat
-folder. scripts/vendor.mjs adds xjyutping.sty, its data and the fonts. Run it
+The fixture lesson, with the tone chart, is compiled for the three audiences
+by Tectonic against the official TeX Live 2024 bundle (fetched by range
+requests, so only the files used are downloaded), and the files Tectonic
+cached are copied into one flat folder. scripts/vendor.mjs adds xjyutping.sty, its data and the fonts. Run it
 after any change to the template in py/app.py, then run scripts/compile-check.sh:
 
     PYTHONPATH=../xjyutping-py/src:py python3 scripts/harvest_bundle.py
@@ -48,7 +48,7 @@ def main():
         for f in ('xjyutping.sty', 'xjyutping-chars.def', 'xjyutping-words.def',
                   'I.Ming-8.10.ttf', 'NotoSerifCJKhk-Regular.otf'):
             shutil.copy(RES / f, job / f)
-        for audience in ('en', 'zh'):
+        for audience in ('en', 'zh', 'yue'):
             lesson['audience'] = audience
             (job / f'{audience}.tex').write_text(app.make_tex(json.dumps(lesson)), encoding='utf8')
             # Tectonic 0.17.0 panics (ttb_net.rs:185) when a cached index meets an

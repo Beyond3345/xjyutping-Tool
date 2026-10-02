@@ -20,9 +20,13 @@ When a reading is wrong, or the teacher prefers another one, a click on the
 character opens an editor with the possible readings. At the end of the lesson,
 Generate PDF writes a vocabulary list typeset by the xjyutping LaTeX package,
 with a title, the author and the date, and with the entries grouped into
-characters, words and sentences. Each table has the characters with their
-Jyutping, the Jyutping on its own and a blank column headed English or 普通話
-for the students to fill in, depending on the students' language.
+characters, words and sentences. The characters and the words are set in
+tables of the characters with their Jyutping, the Jyutping on its own and a
+blank column for the students, while each sentence is written out with its
+Jyutping above the characters and lines under it. The blank column and the
+lines are headed English or 普通話 for translation, or 筆記 for notes when the
+students already speak Cantonese, and the vocabulary list can start with a
+chart of the six tones.
 
 ## Installing
 
@@ -48,7 +52,7 @@ installer cannot add it.
 ## Using the tool
 
 1. Enter the title, the author and, if it should not be today, the date
-2. Choose whether the students speak English or Mandarin (普通話)
+2. Choose whether the students speak English, Mandarin (普通話) or Cantonese (廣東話), and tick Tone chart if the list should start with the six tones
 3. Type the vocabulary and sentences on the left, one per line
 4. Check the readings on the right and correct any by clicking the character
 5. Click Generate PDF and choose where to save the vocabulary list
@@ -85,6 +89,19 @@ printed. A line with one character goes to Characters, a word or a short
 phrase without sentence punctuation goes to Words, and anything else goes to
 Sentences. Clicking the tag changes this (automatic, Character, Word,
 Sentence). A line that appears twice is printed once.
+
+Characters and words are printed in tables, and sentences are written out on
+their own, each with its Jyutping above the characters and one to three lines
+under it for the translation or notes, depending on its length.
+
+### The tone chart
+
+With Tone chart ticked, the vocabulary list starts with a chart of the six
+tones of Cantonese, drawn as arrows over five pitch levels (1 陰平 55, 2 陰上
+35, 3 陰去 33, 4 陽平 21, 5 陽上 13, 6 陽去 22). In lessons for Mandarin or
+Cantonese speakers the labels are the traditional names, and in lessons for
+English speakers they read, for example, "Tone 1 (陰平) High level". The choice
+is kept in the lesson, and a new lesson keeps the choice of the previous one.
 
 ### Lessons
 
@@ -176,6 +193,15 @@ The tag creates a draft release with the notes of that version from
 both builds have passed. Started by hand, the workflow only builds, and the
 installers are kept as artifacts of the run.
 
+### Changing the app icon
+
+The icon is made from `src-tauri/icons/icon-source.png`, the character 粵 in
+brush ink on a white tile with rounded corners (1024 by 1024 pixels).
+
+1. Replace `src-tauri/icons/icon-source.png`
+2. Run `npx tauri icon src-tauri/icons/icon-source.png`
+3. Delete the `android` and `ios` folders it writes into `src-tauri/icons`
+
 ### Changing the PDF template
 
 The template is in `make_tex` and `PREAMBLE` in `py/app.py`. Since the bundle
@@ -185,10 +211,11 @@ such as a new package or font size, needs the bundle rebuilt.
 1. Run `PYTHONPATH=../xjyutping-py/src:py python3 scripts/harvest_bundle.py`
 2. Run `scripts/compile-check.sh` and look at the pages in `.downloads/check/`
 
-The first step compiles `tests/fixture-lesson.json` for both audiences against
-the official TeX Live 2024 bundle of Tectonic, downloading only the files that
-are used, and copies them into `tex/tl2024/`. The second compiles the fixture
-again from the bundle of the app, with an empty cache and without network.
+The first step compiles `tests/fixture-lesson.json`, with the tone chart, for
+the three audiences against the official TeX Live 2024 bundle of Tectonic,
+downloading only the files that are used, and copies them into `tex/tl2024/`.
+The second compiles the fixture again from the bundle of the app, with an
+empty cache and without network.
 
 ## Testing
 

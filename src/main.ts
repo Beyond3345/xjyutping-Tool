@@ -13,8 +13,8 @@ type Item = { c: string; a: string | null; r: string | null; type: string | null
   src: 'auto' | 'word' | 'spot' | null; cjk: boolean; key: string | null; at: number | null; glyph: boolean }
 type Row = { line: string; items: Item[]; segs: number[][]; cjk: boolean; auto: Kind | null
   kind: Kind | null; duplicate: boolean }
-type Lesson = { format: 1; title: string; author: string; date: string; audience: 'en' | 'zh'
-  text: string; words: Record<string, string>; spots: Record<string, Record<string, string>>
+type Lesson = { format: 1; title: string; author: string; date: string; audience: 'en' | 'zh' | 'yue'
+  toneChart: boolean; text: string; words: Record<string, string>; spots: Record<string, Record<string, string>>
   kinds: Record<string, Kind> }
 type KV = { get<T>(k: string): Promise<T | undefined>; set(k: string, v: unknown): Promise<void>
   delete(k: string): Promise<boolean>; entries<T>(): Promise<[string, T][]> }
@@ -42,8 +42,9 @@ let size = 28
 // --- start -----------------------------------------------------------------
 
 function blank(): Lesson {
+  // a new lesson keeps the author, the students' language and the tone chart choice
   return { format: 1, title: '', author: lesson?.author ?? '', date: '', audience: lesson?.audience ?? 'en',
-    text: '', words: {}, spots: {}, kinds: {} }
+    toneChart: lesson?.toneChart ?? false, text: '', words: {}, spots: {}, kinds: {} }
 }
 
 // the store plugin in the app, localStorage when the UI runs in a plain browser
@@ -108,7 +109,7 @@ async function init() {
 // run with --self-test <file>: read a sample with a word and a spot correction,
 // then let the app compile it and write the report (src-tauri/src/lib.rs)
 function selfTest(loadMs: number) {
-  const sample: Lesson = { ...blank(), title: 'self-test', text: '銀行\n佢𠮶度好多人。\n我哋去銀行。',
+  const sample: Lesson = { ...blank(), title: 'self-test', toneChart: true, text: '銀行\n佢𠮶度好多人。\n我哋去銀行。',
     words: { 銀行: 'ngan4 haang4' }, spots: { '佢𠮶度好多人。': { 1: 'go2' } } }
   const report = [`app ${versions.app}, xjyutping-py ${versions.xjyutping_py}, xjyutping-tex ${versions.xjyutping_tex}`,
     `python loaded in ${Math.round(loadMs)} ms`]
@@ -128,6 +129,7 @@ function fillFields() {
   $<HTMLInputElement>('author').value = lesson.author
   $<HTMLInputElement>('date').value = lesson.date
   for (const r of document.querySelectorAll<HTMLInputElement>('input[name=audience]')) r.checked = r.value === lesson.audience
+  $<HTMLInputElement>('toneChart').checked = lesson.toneChart
   input.value = lesson.text
 }
 
@@ -138,8 +140,12 @@ for (const field of ['title', 'author', 'date'] as const) {
   })
 }
 for (const r of document.querySelectorAll<HTMLInputElement>('input[name=audience]')) {
-  r.addEventListener('change', () => { lesson.audience = r.value as 'en' | 'zh'; changed() })
+  r.addEventListener('change', () => { lesson.audience = r.value as Lesson['audience']; changed() })
 }
+$<HTMLInputElement>('toneChart').addEventListener('change', e => {
+  lesson.toneChart = (e.target as HTMLInputElement).checked
+  changed()
+})
 
 let draftTimer = 0
 function changed() {

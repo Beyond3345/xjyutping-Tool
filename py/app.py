@@ -224,8 +224,8 @@ def clean(lesson_json):
         if good:
             spots[line] = good
     kinds = {k: v for k, v in part('kinds').items() if v in ('char', 'word', 'sentence')}
-    lesson.update(words=words, spots=spots, kinds=kinds,
-                  audience='zh' if lesson.get('audience') == 'zh' else 'en')
+    lesson.update(words=words, spots=spots, kinds=kinds, audience=_audience(lesson),
+                  toneChart=lesson.get('toneChart') is True)
     for field in ('title', 'author', 'date', 'text'):
         lesson[field] = str(lesson.get(field) or '')
     return json.dumps({'lesson': lesson, 'dropped': dropped}, ensure_ascii=False)
@@ -282,19 +282,70 @@ JYUTPING_PUNCT = {'，': ',', '。': '.', '！': '!', '？': '?', '；': ';', '�
 CLOSING = set(',.!?;:)"')
 OPENING = set('（「『(')
 
+# the fixed text of the PDF for the students' language: English, Mandarin or
+# Cantonese (whose blank column is for their own notes)
+CHINESE = {'sections': {'char': '單字', 'word': '詞彙', 'sentence': '句子'},
+           'first': {'char': '字', 'word': '詞彙'},
+           'jyutping': '粵拼', 'tones': '聲調', 'high': '高', 'low': '低'}
 TEXT = {
     'en': {'sections': {'char': 'Characters', 'word': 'Vocabulary', 'sentence': 'Sentences'},
-           'first': {'char': 'Character', 'word': 'Word', 'sentence': 'Sentence'},
-           'jyutping': 'Jyutping', 'blank': 'English'},
-    'zh': {'sections': {'char': '單字', 'word': '詞彙', 'sentence': '句子'},
-           'first': {'char': '字', 'word': '詞彙', 'sentence': '句子'},
-           'jyutping': '粵拼', 'blank': '普通話'},
+           'first': {'char': 'Character', 'word': 'Word'},
+           'jyutping': 'Jyutping', 'blank': 'English', 'tones': 'The six tones',
+           'high': 'High', 'low': 'Low'},
+    'zh': {**CHINESE, 'blank': '普通話'},
+    'yue': {**CHINESE, 'blank': '筆記'},
 }
-# per section: the alignment and size of the characters, and the widths of the
-# three columns (characters, plain Jyutping, blank) within the 14.7 cm available
+
+# The six tones of the chart, after the chart the user supplied: the pitch levels
+# (5 high to 1 low) at the start and end of the arrow, where the arrow starts and
+# ends across the chart (cm), its colour, where the Chinese and the two-line
+# English label go with their alignment on that point, and the names.
+TONES = [
+    (5, 5, 1.7, 4.1, (229, 72, 77), (2.9, 4.8, 'b'), (2.9, 4.75, 'b'), '陰平', 'High level'),
+    (3, 5, 4.4, 6.0, (64, 182, 208), (5.3, 4.1, 'r'), (4.9, 4.1, 'r'), '陰上', 'High rising'),
+    (3, 3, 6.3, 8.7, (176, 76, 222), (7.5, 2.8, 'b'), (7.5, 2.75, 'b'), '陰去', 'Mid level'),
+    (2, 1, 8.9, 11.0, (238, 140, 52), (9.7, 1.0, 'r'), (10.0, 0.45, 't'), '陽平', 'Low falling'),
+    (1, 3, 11.3, 12.9, (72, 178, 92), (12.2, 2.1, 'r'), (11.85, 2.1, 'r'), '陽上', 'Low rising'),
+    (2, 2, 13.1, 15.3, (52, 120, 230), (14.2, 1.8, 'b'), (14.2, 1.75, 'b'), '陽去', 'Low level'),
+]
+
+
+def _level(n):
+    """The height (cm) of pitch level n in the chart."""
+    return 0.6 + (n - 1) * 1.0
+
+
+def _tone_chart(text, english):
+    """The \\tonechart macro: five dotted pitch levels and the six tones as
+    coloured arrows, drawn in picture mode (pict2e and color only)."""
+    out = [r'\newcommand\tonechart{{\centering\setlength{\unitlength}{1cm}\setlength{\fboxsep}{1.5pt}%',
+           r'\begin{picture}(15.6,6.1)(0,-0.45)', r'\color[gray]{0.45}']
+    for n in range(1, 6):
+        y = _level(n)
+        out.append(rf'\multiput(0.9,{y:.2f})(0.2,0){{73}}{{\circle*{{0.045}}}}')
+        out.append(rf'\put(0.35,{y:.2f}){{\makebox(0,0){{\small {n}}}}}')
+    out.append(rf'\put(0.35,{_level(5) + 0.6:.2f}){{\makebox(0,0){{\small {text["high"]}}}}}')
+    out.append(rf'\put(0.35,{_level(1) - 0.6:.2f}){{\makebox(0,0){{\small {text["low"]}}}}}')
+    out.append(r'\linethickness{1.6pt}')
+    for k, (a, b, x1, x2, rgb, zh, en, name, gloss) in enumerate(TONES, 1):
+        y1, y2 = _level(a), _level(b)
+        colour = r'\color[RGB]{%d,%d,%d}' % rgb
+        # pict2e takes any integer slope; the length is the horizontal extent
+        out.append(rf'{{{colour}\put({x1:.2f},{y1:.2f}){{\vector({round((x2 - x1) * 100)},'
+                   rf'{round((y2 - y1) * 100)}){{{x2 - x1:.2f}}}}}}}')
+        lx, ly, align = en if english else zh
+        label = (rf'\shortstack{{Tone {k} ({name})\\{gloss}}}' if english else f'{k} {name}')
+        # on white, so that the dotted lines do not run through the text
+        out.append(rf'\put({lx:.2f},{ly:.2f}){{\makebox(0,0)[{align}]'
+                   rf'{{\colorbox{{white}}{{\color[gray]{{0.2}}\small {label}}}}}}}')
+    out += [r'\end{picture}\par}}', '']
+    return '\n'.join(out)
+
+
+# per table (sentences have none): the alignment and size of the characters,
+# and the widths of the three columns (characters, plain Jyutping, blank) within the 14.7 cm available
 COLUMNS = {'char': (r'\centering', r'\Large', '2.6cm', '3.2cm', '8.8cm'),
-           'word': (r'\centering', r'\Large', '4.6cm', '4.4cm', '5.6cm'),
-           'sentence': (r'\raggedright', r'\large', '7cm', '4.6cm', '3cm')}
+           'word': (r'\centering', r'\Large', '4.6cm', '4.4cm', '5.6cm')}
 
 PREAMBLE = r"""\documentclass[a4paper,11pt]{article}
 \usepackage[margin=2.5cm]{geometry}
@@ -314,6 +365,14 @@ PREAMBLE = r"""\documentclass[a4paper,11pt]{article}
 \renewcommand\arraystretch{1.6}
 \xjyutpingsetup{ratio=0.5}
 """
+# loaded only for the tone chart, so the bundle needs them only then
+CHART_PACKAGES = r"""\usepackage{pict2e}
+\usepackage{color}
+"""
+
+
+def _audience(lesson):
+    return lesson.get('audience') if lesson.get('audience') in TEXT else 'en'
 
 
 def escape(s):
@@ -328,7 +387,7 @@ def _date(lesson):
     if lesson.get('date'):
         return lesson['date']
     d = datetime.date.today()
-    if lesson.get('audience') == 'zh':
+    if _audience(lesson) != 'en':
         return f'{d.year}年{d.month}月{d.day}日'
     return f'{d.day} {d:%B} {d.year}'
 
@@ -351,10 +410,26 @@ def _jyutping_cell(items):
     return ' '.join(out.split())
 
 
+def _sentence(row, text, audience):
+    """A sentence with its Jyutping above the characters and, under it, lines
+    for the students' translation or notes: one line per 15 characters, at most
+    three. Each sentence stays on one page."""
+    syls = ' '.join(it['r'] for it in row['items'] if it['cjk'])
+    lines = min(3, 1 + sum(it['cjk'] for it in row['items']) // 15)
+    label = text['blank'] + (':' if audience == 'en' else '：')
+    return '\n'.join(
+        [r'\noindent\begin{minipage}{\linewidth}\raggedright',
+         rf'{{\Large\xjyutping{{{escape(row["line"])}}}{{{syls}}}\par}}',
+         rf'\vspace{{3mm}}\noindent{{\small {label}}}\enspace\hrulefill\par']
+        + [r'\vspace{5mm}\noindent\hrulefill\par'] * (lines - 1)
+        + [r'\end{minipage}\par\vspace{6mm}', ''])
+
+
 def make_tex(lesson_json):
     lesson = json.loads(lesson_json)
-    audience = 'zh' if lesson.get('audience') == 'zh' else 'en'
+    audience = _audience(lesson)
     text = TEXT[audience]
+    chart = lesson.get('toneChart') is True
     groups = {'char': [], 'word': [], 'sentence': []}
     missing = []
     for n, row in enumerate(_rows(lesson), 1):
@@ -367,7 +442,7 @@ def make_tex(lesson_json):
     if missing:
         raise ValueError('These characters need a reading: ' + ', '.join(missing))
     body = []
-    for kind in ('char', 'word', 'sentence'):
+    for kind in ('char', 'word'):
         if not groups[kind]:
             continue
         align, size, w1, w2, w3 = COLUMNS[kind]
@@ -381,7 +456,13 @@ def make_tex(lesson_json):
             body.append(f"\\xjyutping{{{escape(row['line'])}}}{{{syls}}} & "
                         f"{escape(_jyutping_cell(row['items']))} & \\\\")
         body.append('\\end{longtable}\n')
-    return (PREAMBLE
+    if groups['sentence']:
+        body.append(f"\\section*{{{text['sections']['sentence']}}}\n")
+        body += [_sentence(row, text, audience) for row in groups['sentence']]
+    preamble = PREAMBLE + (CHART_PACKAGES + _tone_chart(text, audience == 'en') if chart else '')
+    if chart:
+        body.insert(0, f"\\section*{{{text['tones']}}}\n\\tonechart\n")
+    return (preamble
             + f"\\title{{{escape(lesson.get('title', ''))}}}\n"
             + f"\\author{{{escape(lesson.get('author', ''))}}}\n"
             + f"\\date{{{escape(_date(lesson))}}}\n"
