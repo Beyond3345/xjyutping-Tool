@@ -23,7 +23,7 @@ human or agent.
 There are no unreleased changes yet. Add new entries here under
 `### Added`, `### Changed`, `### Fixed` and so on.
 
-## [1.3.1] - 2026-10-03
+## [1.2.1] - 2026-10-03
 
 ### Changed
 
@@ -466,12 +466,11 @@ edit keeps its spot, an adjacent occurrence opens its own span, the corrections
 dialog resets and counts and the lesson, the students' language and the tone
 chart survive a reload and are kept by New.
 
-## 8. Version 1.3.1: a simpler codebase (2026-10-03)
+## 8. Version 1.2.1: a simpler codebase (2026-10-03)
 
 After 1.2.0, the user asked for a review of the whole repository for
 unnecessary complexity and for every fix that loses no functionality. The
-release is numbered 1.3.1 at the user's request. The changes are the
-following.
+changes are the following.
 
 - `src-tauri/src/lib.rs` and the six-line `main.rs` are merged into one
   `main.rs`, without the `[lib]` target (staticlib, cdylib and rlib) and the
