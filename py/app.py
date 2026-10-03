@@ -7,8 +7,11 @@ it: a word correction replaces the readings of every occurrence of the word
 that starts and ends on segment boundaries, and a spot correction replaces the
 reading of one lone character in one line.
 """
+import bisect
 import datetime
+import functools
 import json
+import os
 import re
 import unicodedata
 from pathlib import Path
@@ -23,8 +26,6 @@ INVISIBLE = dict.fromkeys(map(ord, '\u200b\u200c\u200d\ufeff\r'), None)
 INVISIBLE[0xa0] = ' '
 
 _j = Jyutping()
-_known = None
-_glyphs = None
 
 
 def _is_cjk(ch, reading):
@@ -39,39 +40,28 @@ def _lines(text):
     return [line.translate(INVISIBLE).strip() for line in text.split('\n')]
 
 
+@functools.cache
 def _known_syllables():
-    global _known
-    if _known is None:
-        data = Path(xjyutping.DATA_DIR)
-        found = set()
-        for name in ('chars.tsv', 'words.tsv'):
-            found.update(re.findall(r'\b[a-z]+[1-6]\b', (data / name).read_text(encoding='utf8')))
-        _known = found
-    return _known
+    data = Path(xjyutping.DATA_DIR)
+    return {s for name in ('chars.tsv', 'words.tsv')
+            for s in re.findall(r'\b[a-z]+[1-6]\b', (data / name).read_text(encoding='utf8'))}
+
+
+@functools.cache
+def _glyph_ranges():
+    """The code point ranges of I.Ming and Noto Serif CJK HK, from glyphs.txt."""
+    ranges = []
+    for row in Path(__file__).with_name('glyphs.txt').read_text().split():
+        lo, _, hi = row.partition('-')
+        ranges.append((int(lo, 16), int(hi or lo, 16)))
+    return ranges
 
 
 def _printable(ch):
-    """False when neither font of the PDF has the character (glyphs.txt holds
-    the code point ranges of I.Ming and Noto Serif CJK HK); True without it."""
-    global _glyphs
-    if _glyphs is None:
-        path = Path(__file__).with_name('glyphs.txt')
-        _glyphs = []
-        if path.exists():
-            for row in path.read_text().split():
-                lo, _, hi = row.partition('-')
-                _glyphs.append((int(lo, 16), int(hi or lo, 16)))
-    if not _glyphs:
-        return True
-    cp = ord(ch)
-    lo, hi = 0, len(_glyphs)
-    while lo < hi:
-        mid = (lo + hi) // 2
-        if _glyphs[mid][1] < cp:
-            lo = mid + 1
-        else:
-            hi = mid
-    return lo < len(_glyphs) and _glyphs[lo][0] <= cp
+    """False when neither font of the PDF has the character."""
+    ranges, cp = _glyph_ranges(), ord(ch)
+    k = bisect.bisect_left(ranges, cp, key=lambda g: g[1])
+    return k < len(ranges) and ranges[k][0] <= cp
 
 
 def _read_line(line, words, spots):
@@ -102,13 +92,10 @@ def _read_line(line, words, spots):
         ps = seg_pos[n]
         return len(ps) > 1 and ps[-1] - ps[0] == len(ps) - 1
 
-    def starts(p):
+    def edge(p, k):
+        # p starts (k=0) or ends (k=-1) its word, or is in no joined word
         n = items[p]['seg']
-        return n is None or not joined(n) or seg_pos[n][0] == p
-
-    def ends(p):
-        n = items[p]['seg']
-        return n is None or not joined(n) or seg_pos[n][-1] == p
+        return n is None or not joined(n) or seg_pos[n][k] == p
 
     taken = set()
     for key in sorted(words, key=len, reverse=True):
@@ -116,7 +103,7 @@ def _read_line(line, words, spots):
         at = line.find(key)
         while at != -1:
             span = range(at, at + len(key))
-            if (all(items[p]['cjk'] for p in span) and starts(at) and ends(span[-1])
+            if (all(items[p]['cjk'] for p in span) and edge(at, 0) and edge(span[-1], -1)
                     and not taken.intersection(span)):
                 for p, s in zip(span, syls):
                     items[p].update(r=s, src='word', key=key, at=at)
@@ -183,12 +170,8 @@ def candidates(lesson_json, row, i):
     ch = it['c']
     given = [x['r'] for r in rows for x in r['items'] if x['c'] == ch and x['src'] in ('word', 'spot')]
     found = given + [it['a'] or ''] + _j.get_jyutpings(ch, '', n=20)
-    out = []
-    for s in found:
-        if SYL.match(s) and s not in out:
-            out.append(s)
-    return json.dumps({'given': sorted(set(given), key=given.index), 'auto': it['a'], 'all': out},
-                      ensure_ascii=False)
+    return json.dumps({'given': list(dict.fromkeys(given)), 'auto': it['a'],
+                       'all': list(dict.fromkeys(s for s in found if SYL.match(s)))}, ensure_ascii=False)
 
 
 def check(s):
@@ -242,12 +225,8 @@ def migrate(lesson_json, old_text):
         changed = [(a, b) for a, b in zip(old, new) if a != b]
         if len(changed) == 1:
             a, b = changed[0]
-            pre = 0
-            while pre < min(len(a), len(b)) and a[pre] == b[pre]:
-                pre += 1
-            suf = 0
-            while suf < min(len(a), len(b)) - pre and a[-1 - suf] == b[-1 - suf]:
-                suf += 1
+            pre = len(os.path.commonprefix([a, b]))
+            suf = len(os.path.commonprefix([a[pre:][::-1], b[pre:][::-1]]))
             spots = lesson.get('spots', {})
             # an edit that makes the line equal to another keeps that line's own corrections
             alone = new.count(b) == 1

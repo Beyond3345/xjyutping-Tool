@@ -32,7 +32,7 @@
 <svelte:window {onkeydown} />
 
 <div class="app" class:present={store.present}>
-  <div class="chrome" hidden={store.present}><Header /></div>
+  <Header />
   <main>
     <TextPane />
     <PreviewPane />

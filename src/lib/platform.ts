@@ -1,5 +1,5 @@
 // What the window needs from the app around it: storage, the Rust commands of
-// src-tauri/src/lib.rs, the window itself and the fonts of the PDF. In a plain
+// src-tauri/src/main.rs, the window itself and the fonts of the PDF. In a plain
 // browser (npx vite) the store falls back to localStorage and files are off.
 import { invoke, convertFileSrc } from '@tauri-apps/api/core'
 import { getVersion } from '@tauri-apps/api/app'

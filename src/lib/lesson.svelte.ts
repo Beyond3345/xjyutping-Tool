@@ -132,7 +132,7 @@ class Store {
   }
 
   // run with --self-test <file>: read a sample with a word and a spot correction,
-  // then let the app compile it and write the report (src-tauri/src/lib.rs)
+  // then let the app compile it and write the report (src-tauri/src/main.rs)
   #selfTest(loadMs: number) {
     const sample: Lesson = { ...blank(null), title: 'self-test', toneChart: true, text: '銀行\n佢𠮶度好多人。\n我哋去銀行。',
       words: { 銀行: 'ngan4 haang4' }, spots: { '佢𠮶度好多人。': { 1: 'go2' } } }
@@ -170,18 +170,8 @@ class Store {
     this.#settings.set('dirty', this.dirty)
   }
 
-  setField(field: 'title' | 'author' | 'date', value: string) {
+  set<K extends 'title' | 'author' | 'date' | 'audience' | 'toneChart'>(field: K, value: Lesson[K]) {
     this.lesson[field] = value
-    this.changed()
-  }
-
-  setAudience(audience: Lesson['audience']) {
-    this.lesson.audience = audience
-    this.changed()
-  }
-
-  setToneChart(on: boolean) {
-    this.lesson.toneChart = on
     this.changed()
   }
 

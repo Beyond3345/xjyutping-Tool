@@ -118,7 +118,7 @@ jobs:
           args: ${{ matrix.args }}
           uploadWorkflowArtifacts: true
       # the built app loads Python, reads a sample with corrections and compiles
-      # it with the bundled engine, then writes a report (see src-tauri/src/lib.rs)
+      # it with the bundled engine, then writes a report (see src-tauri/src/main.rs)
       - name: Self-test the built app (Windows)
         if: runner.os == 'Windows'
         working-directory: xjyutping-Tool/src-tauri/target/release

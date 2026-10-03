@@ -23,6 +23,17 @@ human or agent.
 There are no unreleased changes yet. Add new entries here under
 `### Added`, `### Changed`, `### Fixed` and so on.
 
+## [1.3.1] - 2026-10-03
+
+### Changed
+
+- The code is simpler and about 90 lines shorter, with the same behaviour. The
+  Rust commands are one `src-tauri/src/main.rs` without the mobile scaffolding
+  of the Tauri template, Tectonic is started with the standard library instead
+  of the shell plugin, which made the macOS .dmg about 1.4 MB smaller, and
+  `py/app.py` uses `bisect`, `functools.cache` and `os.path.commonprefix` in
+  place of hand-written code.
+
 ## [1.2.0] - 2026-10-03
 
 ### Changed
@@ -100,7 +111,7 @@ This repository holds the teaching tool, and the table below lists its files.
 | `py/app.py` | The bridge to xjyutping-py: readings with corrections, sorting, candidates, checks and the LaTeX source (Sections 2.2 and 2.3). |
 | `py/test_app.py` | The tests of `app.py` (39 tests). |
 | `py/glyphs.txt` | The code points that I.Ming or Noto Serif CJK HK contain, made once by `scripts/glyphs.py`. |
-| `src-tauri/src/lib.rs` | The Rust commands: compile with Tectonic, open and save lessons, export corrections, and the self-test (Section 2.7). |
+| `src-tauri/src/main.rs` | The Rust commands: compile with Tectonic, open and save lessons, export corrections and the self-test (Section 2.7). |
 | `src-tauri/icons/icon-source.png` | The source of every app icon (Section 6.4). |
 | `src-tauri/tauri.conf.json`, `capabilities/default.json` | The app, its bundle (sidecar, resources) and what the window may call. |
 | `scripts/vendor.mjs` | Assembles the generated parts before every build (Section 2.6). |
@@ -454,3 +465,37 @@ stops at punctuation, Esc closes the editor before it leaves Present, a line
 edit keeps its spot, an adjacent occurrence opens its own span, the corrections
 dialog resets and counts and the lesson, the students' language and the tone
 chart survive a reload and are kept by New.
+
+## 8. Version 1.3.1: a simpler codebase (2026-10-03)
+
+After 1.2.0, the user asked for a review of the whole repository for
+unnecessary complexity and for every fix that loses no functionality. The
+release is numbered 1.3.1 at the user's request. The changes are the
+following.
+
+- `src-tauri/src/lib.rs` and the six-line `main.rs` are merged into one
+  `main.rs`, without the `[lib]` target (staticlib, cdylib and rlib) and the
+  `mobile_entry_point` of the template, since the app runs on desktops only.
+- Tectonic is started with `std::process::Command` on the file next to the
+  app's executable (`tectonic.exe` on Windows), found with Tauri's own
+  `current_exe`, which resolves a symlinked executable, and run in
+  `spawn_blocking` with `CREATE_NO_WINDOW` on Windows, as the shell plugin did. Without the plugin,
+  `Cargo.lock` lost 96 lines and the .dmg about 1.4 MB.
+- In `py/app.py`, the glyph lookup uses `bisect.bisect_left` and
+  `functools.cache` (the fallback for a missing `glyphs.txt` is gone, since the
+  file is always shipped), `migrate` finds the edited part with
+  `os.path.commonprefix` and `candidates` removes duplicates with
+  `dict.fromkeys`.
+- The store has one `set(field, value)` in place of three setters, the header
+  hides itself in Present, the 粵 mark is imported from `src-tauri/icons`
+  instead of a copy and `vite.config.ts` lost the mobile host settings of the
+  template.
+- The `vite preview` script, `.vscode/extensions.json` and the entries of
+  `.gitignore` for tools the project does not use are removed.
+
+The plugin-store was kept, although `localStorage` could replace it, since the
+users of 1.0.0 to 1.2.0 would lose their corrections database without an
+import of the store files. The old and the new `py/app.py` gave the same
+output for `render`, 224 candidate lists, 200,000 code points of the glyph
+lookup, 14 line edits and the six LaTeX sources, and the universal build
+passed its self-test.

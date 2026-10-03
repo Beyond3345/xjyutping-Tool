@@ -136,7 +136,7 @@ PDF.
 - The window is a [Tauri](https://tauri.app) 2 app whose interface is written
   in [Svelte](https://svelte.dev) 5 (`src/App.svelte`, `src/components/` and
   `src/lib/`) and follows the system's light or dark mode. The Rust side
-  (`src-tauri/src/lib.rs`) only runs the TeX engine and reads and writes the
+  (`src-tauri/src/main.rs`) only runs the TeX engine and reads and writes the
   files chosen in dialogs.
 - The readings come from xjyutping-py, unchanged, running under
   [Pyodide](https://pyodide.org) inside the window. `py/app.py` applies the

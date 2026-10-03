@@ -2,23 +2,23 @@
   import { store } from '../lib/lesson.svelte'
   import Icon from './Icon.svelte'
   import IconButton from './IconButton.svelte'
-  import mark from '../assets/mark.png'
+  import mark from '../../src-tauri/icons/128x128@2x.png'
 
   const mod = navigator.platform.startsWith('Mac') ? '⌘' : 'Ctrl+'
   const missing = $derived(store.missing.length)
 </script>
 
-<header>
+<header hidden={store.present}>
   <img class="mark" src={mark} alt="" width="30" height="30" />
   <div class="lesson">
     <input class="title" placeholder="Untitled lesson" aria-label="Title" value={store.lesson.title}
-      oninput={e => store.setField('title', e.currentTarget.value)} />
+      oninput={e => store.set('title', e.currentTarget.value)} />
     <div class="byline">
       <input placeholder="Author" aria-label="Author" value={store.lesson.author}
-        oninput={e => store.setField('author', e.currentTarget.value)} />
+        oninput={e => store.set('author', e.currentTarget.value)} />
       <span aria-hidden="true">·</span>
       <input placeholder="Date: today" aria-label="Date, today when empty" value={store.lesson.date}
-        oninput={e => store.setField('date', e.currentTarget.value)} />
+        oninput={e => store.set('date', e.currentTarget.value)} />
     </div>
   </div>
 

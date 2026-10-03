@@ -15,9 +15,9 @@
   {#if !store.present}
     <div class="toolbar">
       <Segmented label="The students speak (it heads the blank column: English, 普通話 or 筆記 for notes)"
-        value={store.lesson.audience} options={AUDIENCES} onchange={v => store.setAudience(v)} />
+        value={store.lesson.audience} options={AUDIENCES} onchange={v => store.set('audience', v)} />
       <Switch label="Tone chart" title="Start the PDF with a chart of the six tones" checked={store.lesson.toneChart}
-        onchange={on => store.setToneChart(on)} />
+        onchange={on => store.set('toneChart', on)} />
       <span class="grow"></span>
       <IconButton icon="minus" label="Smaller text" onclick={() => store.setSize(store.size - 4)} />
       <IconButton icon="plus" label="Larger text" onclick={() => store.setSize(store.size + 4)} />
