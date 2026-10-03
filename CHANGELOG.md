@@ -23,6 +23,18 @@ human or agent.
 There are no unreleased changes yet. Add new entries here under
 `### Added`, `### Changed`, `### Fixed` and so on.
 
+## [1.2.0] - 2026-10-03
+
+### Changed
+
+- The interface is rewritten in Svelte 5 with a cleaner layout: a header with
+  the lesson's title, author and date, the file actions, Corrections and
+  Generate PDF, then the text and the preview, whose own toolbar holds the
+  students' language, Tone chart, the text size and Present.
+- Light and dark mode follow the system automatically, with an ink accent like
+  the 粵 icon, and messages appear as notices at the bottom instead of a status
+  line.
+
 ## [1.1.0] - 2026-10-03
 
 ### Added
@@ -84,7 +96,7 @@ This repository holds the teaching tool, and the table below lists its files.
 
 | Path | What it is |
 | --- | --- |
-| `index.html`, `src/main.ts`, `src/style.css` | The interface: lesson fields, the two panes, the correction editor, files and the PDF (Section 2.4). |
+| `src/App.svelte`, `src/components/`, `src/lib/`, `src/app.css` | The interface in Svelte 5: the layout, the parts of the window, the state and the design tokens (Section 7). |
 | `py/app.py` | The bridge to xjyutping-py: readings with corrections, sorting, candidates, checks and the LaTeX source (Sections 2.2 and 2.3). |
 | `py/test_app.py` | The tests of `app.py` (39 tests). |
 | `py/glyphs.txt` | The code points that I.Ming or Noto Serif CJK HK contain, made once by `scripts/glyphs.py`. |
@@ -200,8 +212,9 @@ lost). The characters are set in `\Large` with `ratio=0.5`, which gives about
 
 ### 2.4 The interface
 
-`src/main.ts` holds the lesson and draws each line from the JSON of
-`app.render`, as one `<ruby>` per character. It does not re-render while an
+The state module (`src/lib/lesson.svelte.ts`, Section 7) holds the lesson,
+and the preview draws each line from the JSON of `app.render`, as one
+`<ruby>` per character. It does not re-render while an
 input method composes, it moves a line's spots and kind when the line is
 edited (by common prefix and suffix, in `app.migrate`), and it keeps the draft
 in the store. In a plain browser (`npx vite`), it uses `localStorage` instead
@@ -386,3 +399,58 @@ pixels.
 only when asked (with the English and the Chinese labels), and the sentences
 with their lines for each language. `scripts/compile-check.sh` now compiles
 the fixture for all three audiences.
+
+## 7. Version 1.2.0: the interface in Svelte (2026-10-03)
+
+### 7.1 The request
+
+After 1.1.0, the user asked for a clean, unified and modern interface in
+Svelte that follows the system's light or dark mode. The questions asked gave
+a header with two panes, an ink accent and a release as 1.2.0. Nothing changed
+in `py/app.py`, the Rust commands, the TeX bundle or the PDF.
+
+### 7.2 Structure
+
+The 703 lines of the imperative `src/main.ts` became the following parts,
+with the same logic.
+
+| Path | What it is |
+| --- | --- |
+| `src/main.ts` | Mounts `App.svelte`. |
+| `src/App.svelte` | The layout, the window title, the keyboard shortcuts and Present. |
+| `src/lib/types.ts` | The JSON shapes of `py/app.py`. |
+| `src/lib/python.ts` | Pyodide (with the 30 s timeout) and typed calls to `render`, `candidates`, `check`, `clean`, `migrate`, `make_tex` and `versions`. |
+| `src/lib/platform.ts` | The store (or `localStorage` in a plain browser), the Rust commands, the window and the fonts of the PDF. |
+| `src/lib/lesson.svelte.ts` | The state: the lesson, its file, the rows derived from `render`, the correction editor and every action. |
+| `src/components/` | `Header`, `TextPane`, `PreviewPane`, `PreviewRow`, `CorrectionPopover`, `CorrectionsDialog`, `Toast`, and the small `Segmented`, `Switch`, `IconButton` and `Icon`. |
+| `src/app.css` | The design tokens and the shared buttons. |
+
+The rows are now derived from the lesson (`$derived` over a snapshot of it),
+so any change to the lesson redraws the preview, where 1.1.0 called `render`
+by hand. A character is a `<span role="button">` around its `<ruby>`, since a
+ruby may not carry the role of a button, and the characters are written
+without whitespace between them, which would show as gaps. The icons are ten
+paths of Lucide (ISC licence) copied into `Icon.svelte`, so there is no icon
+dependency. `npm run build` runs `svelte-check --fail-on-warnings` first.
+
+### 7.3 Design
+
+The colours are tokens on `:root`, redefined under `prefers-color-scheme:
+dark`. `light-dark()` was not used, since WKWebView on macOS 13.3 (Safari
+16.4) lacks it. The accent is ink, near-black in light mode and near-white in
+dark mode, while the marks keep their own colours in both (corrections blue,
+guesses amber, missing readings red), and the text colours keep a contrast of
+4.5:1 or more on their surfaces. The segmented control and the switch are
+built on radio buttons and a checkbox, so the keyboard and screen readers
+work, and motion is turned off under `prefers-reduced-motion`.
+
+### 7.4 Checks
+
+Every feature of 1.1.0 was exercised in the browser pane with Vite, in light
+and dark mode, at 1280×820 and at the minimum 760×480: a correction typed in
+one field survives focusing the next, a word correction reaches all three
+occurrences, a missing reading takes a spot, the kind tag cycles, widening
+stops at punctuation, Esc closes the editor before it leaves Present, a line
+edit keeps its spot, an adjacent occurrence opens its own span, the corrections
+dialog resets and counts and the lesson, the students' language and the tone
+chart survive a reload and are kept by New.

@@ -134,7 +134,8 @@ The tool is mainly divided into three parts, the window, the readings and the
 PDF.
 
 - The window is a [Tauri](https://tauri.app) 2 app whose interface is written
-  in TypeScript (`index.html`, `src/main.ts`, `src/style.css`). The Rust side
+  in [Svelte](https://svelte.dev) 5 (`src/App.svelte`, `src/components/` and
+  `src/lib/`) and follows the system's light or dark mode. The Rust side
   (`src-tauri/src/lib.rs`) only runs the TeX engine and reads and writes the
   files chosen in dialogs.
 - The readings come from xjyutping-py, unchanged, running under
@@ -224,6 +225,8 @@ empty cache and without network.
 - `scripts/compile-check.sh` compiles the fixture lesson with the bundled
   engine and renders the pages to PNG (with `--engine-only` it skips the
   rendering, as in CI)
+- `npm run check` checks the types of the interface with svelte-check, which
+  also runs before every build
 - `cargo test` in `src-tauri` tests the file name and log helpers
 - `xjyutping-Tool --self-test <file>` runs a built app on a sample lesson with
   corrections, compiles it with the bundled engine without asking where to
