@@ -34,8 +34,10 @@ following, each under its own licence and not covered by the MIT licence.
 - Pyodide (https://pyodide.org): Mozilla Public License 2.0.
 - Tectonic 0.17.0 (https://tectonic-typesetting.github.io): MIT licence.
 - The TeX Live 2024 files in tex/tl2024/: see tex/NOTICE.md.
-- I.Ming 8.10 (https://github.com/ichitenfont/I.Ming): IPA Font License
-  Agreement v1.0.
-- Noto Serif CJK HK 2.003 (https://github.com/notofonts/noto-cjk): SIL Open
-  Font License 1.1.
+- The fonts of py/fonts.json, unmodified: I.Ming 8.10 under the IPA Font
+  License Agreement v1.0; Noto Serif CJK HK, Chiron Hei HK, GenSenRounded TW,
+  JyunsaiKaai, Andika, Atkinson Hyperlegible, Source Sans 3 and Source Serif 4
+  under the SIL Open Font License 1.1; Latin Modern under the GUST Font
+  License. Their copyright lines and licence texts are in tex/fonts/, which
+  the app also ships.
 - Tauri and its plugins (https://tauri.app): MIT or Apache 2.0.

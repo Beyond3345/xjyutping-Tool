@@ -17,7 +17,7 @@ permissions:
 
 env:
   XJYUTPING_PY_COMMIT: 88c6e9939b805297cb8b8b64aa582bd8a3946d9b   # xjyutping-py 1.3.1
-  XJYUTPING_TEX_COMMIT: f93752326354be9add30d3091f57df1a7aef626e  # xjyutping-tex 1.5.1
+  XJYUTPING_TEX_COMMIT: ef1eba0aee0f34a014724c1d1acd354d6fa2425a  # xjyutping-tex 1.5.2
 
 jobs:
   release:
@@ -94,11 +94,11 @@ jobs:
       - uses: swatinem/rust-cache@v2
         with:
           workspaces: xjyutping-Tool/src-tauri
-      # Tectonic and the fonts (about 210 MB), pinned by sha256 in vendor.mjs
+      # Tectonic and the fonts, pinned by sha256 in vendor.mjs and py/fonts.json
       - uses: actions/cache@v6
         with:
           path: xjyutping-Tool/.downloads
-          key: downloads-${{ runner.os }}-${{ hashFiles('xjyutping-Tool/scripts/vendor.mjs') }}
+          key: downloads-${{ runner.os }}-${{ hashFiles('xjyutping-Tool/scripts/vendor.mjs', 'xjyutping-Tool/py/fonts.json') }}
       - run: npm ci
         working-directory: xjyutping-Tool
       - run: node scripts/vendor.mjs

@@ -17,7 +17,7 @@ struct ExportLock(Mutex<()>);
 #[derive(Serialize)]
 struct Exported {
     path: Option<String>,
-    /// characters the log reports as missing from both fonts
+    /// characters the log reports as missing from the chosen fonts
     missing: BTreeSet<String>,
 }
 
@@ -56,7 +56,7 @@ fn tail(text: &str) -> String {
 }
 
 /// Compiles `tex` with the bundled Tectonic in the app's cache folder and
-/// returns the PDF and the characters the log reports as missing from both fonts.
+/// returns the PDF and the characters the log reports as missing from the chosen fonts.
 async fn compile(app: &AppHandle, tex: String) -> Result<(PathBuf, BTreeSet<String>), String> {
     let cache = app.path().app_cache_dir().map_err(err)?;
     let job = cache.join("job");

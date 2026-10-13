@@ -34,7 +34,9 @@
   --radius-sm: 6px;
 
   --font-ui: -apple-system, BlinkMacSystemFont, 'Segoe UI Variable Text', 'Segoe UI', system-ui, sans-serif;
-  --font-han: 'IMing', 'NotoSerifHK', 'PingFang HK', 'Microsoft JhengHei', serif;
+  /* --chinese-font and --jyutping-font are the fonts chosen in Settings (lib/platform.ts) */
+  --font-han: var(--chinese-font, 'PingFang HK'), 'PingFang HK', 'Microsoft JhengHei', serif;
+  --font-jyutping: var(--jyutping-font, -apple-system), -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
   --font-mono: ui-monospace, 'SF Mono', 'Cascadia Mono', Menlo, Consolas, monospace;
 }
 

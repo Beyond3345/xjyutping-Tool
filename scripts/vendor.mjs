@@ -1,7 +1,8 @@
 // Assembles the generated parts of the app before `vite` and `vite build`:
 //   public/pyodide/         the Pyodide runtime (from node_modules/pyodide)
-//   public/py.zip           py/app.py, py/glyphs.txt, versions.json and the xjyutping package
-//   src-tauri/resources/texbundle/   TeX Live subset, xjyutping.sty and data, fonts, SHA256SUM
+//   public/py.zip           py/app.py, py/fonts.json, py/glyphs/, versions.json and the xjyutping package
+//   src-tauri/resources/texbundle/   TeX Live subset, xjyutping.sty and data, the fonts of py/fonts.json
+//                                    with their licences (tex/fonts/), SHA256SUM
 //   src-tauri/binaries/tectonic-<target triple>   the TeX engine
 // The xjyutping packages are read from the sibling repositories (XJYUTPING_PY and
 // XJYUTPING_TEX override the paths); downloads are pinned by sha256 and cached in .downloads/.
@@ -22,12 +23,10 @@ const FILES = {
   'aarch64-apple-darwin': [`${TECTONIC}aarch64-apple-darwin.tar.gz`, 'a3f1cac7c5678f01661a92212f58480ae3b0634115d880dbc59e2953ded45667'],
   'x86_64-apple-darwin': [`${TECTONIC}x86_64-apple-darwin.tar.gz`, '7c90ef5b6ddb1eb1937e4337add5237b79338e4b9676459fa91187d24d6cdf80'],
   'x86_64-pc-windows-msvc': [`${TECTONIC}x86_64-pc-windows-msvc.zip`, 'f61ce51f0b0ade1015b7de7ef368541c5424e9756ecbd0d7af97d6d48030845f'],
-  'I.Ming-8.10.ttf': ['https://github.com/ichitenfont/I.Ming/releases/download/8.10/I.Ming-8.10.ttf',
-    'cba13b75b050d671b611d0063147262e421e14359ad4530948b070f56111f0f3'],
-  '11_NotoSerifCJKhk.zip': ['https://github.com/notofonts/noto-cjk/releases/download/Serif2.003/11_NotoSerifCJKhk.zip',
-    '2eaf73871cbc53e72bb1021d760eb64b395955d33fdc560964e15b429a64c288'],
 }
-const NOTO = ['OTF/TraditionalChineseHK/NotoSerifCJKhk-Regular.otf', 'e687d5674d83acf62d1264da5d002c5401363418abb98dca0836d38d88953708']
+// the fonts the teacher chooses from; those of TeX Live are already in tex/tl2024/
+const FONTS = JSON.parse(fs.readFileSync(path.join(root, 'py', 'fonts.json'), 'utf8')).filter(f => !f.texlive)
+for (const f of FONTS) FILES[path.basename(new URL(f.url).pathname)] = [f.url, f.archiveSha256 ?? f.sha256]
 
 const sha256 = file => createHash('sha256').update(fs.readFileSync(file)).digest('hex')
 const run = (cmd, args, cwd) => execFileSync(cmd, args, { cwd, stdio: ['ignore', 'ignore', 'inherit'] })
@@ -39,6 +38,7 @@ function fresh(dir) {
 }
 
 async function download(name) {
+  if (!FILES[name]) throw new Error(`nothing pinned for ${name}`)
   const [url, hash] = FILES[name]
   const file = path.join(CACHE, name)
   if (fs.existsSync(file) && sha256(file) === hash) return file
@@ -68,12 +68,26 @@ function pyZip() {
   fs.cpSync(path.join(PY, 'src', 'xjyutping'), path.join(stage, 'xjyutping'), {
     recursive: true, filter: src => !src.includes('__pycache__'),
   })
-  for (const f of ['app.py', 'glyphs.txt']) fs.copyFileSync(path.join(root, 'py', f), path.join(stage, f))
+  fs.copyFileSync(path.join(root, 'py', 'app.py'), path.join(stage, 'app.py'))
+  fs.copyFileSync(path.join(root, 'py', 'fonts.json'), path.join(stage, 'fonts.json'))
+  fs.cpSync(path.join(root, 'py', 'glyphs'), path.join(stage, 'glyphs'), { recursive: true })
   fs.writeFileSync(path.join(stage, 'versions.json'), JSON.stringify({ xjyutping_tex: texVersion() }))
   const zip = path.join(root, 'public', 'py.zip')
   fs.rmSync(zip, { force: true })
   // stored, not deflated, so that Tauri's brotli compresses the tables better
   run(TAR, ['-a', '--options', 'zip:compression=store', '-cf', zip, '-C', stage, '.'])
+}
+
+/** a font of py/fonts.json in .downloads/, taken out of its archive when it comes in one */
+async function font(f) {
+  const archive = await download(path.basename(new URL(f.url).pathname))
+  if (!f.member) return archive
+  const dir = path.join(CACHE, `font-${f.id}`)
+  const file = path.join(dir, path.basename(f.member))
+  if (fs.existsSync(file) && sha256(file) === f.sha256) return file
+  run(TAR, ['-xf', archive, '-C', fresh(dir), '--strip-components', String(f.member.split('/').length - 1), f.member])
+  if (sha256(file) !== f.sha256) throw new Error(`${f.member}: sha256 mismatch, expected ${f.sha256}`)
+  return file
 }
 
 async function texbundle() {
@@ -84,13 +98,11 @@ async function texbundle() {
   for (const f of ['xjyutping.sty', 'xjyutping-chars.def', 'xjyutping-words.def']) {
     fs.copyFileSync(path.join(TEX, f), path.join(out, f))
   }
-  fs.copyFileSync(await download('I.Ming-8.10.ttf'), path.join(out, 'I.Ming-8.10.ttf'))
-  const noto = path.join(CACHE, path.basename(NOTO[0]))
-  if (!fs.existsSync(noto) || sha256(noto) !== NOTO[1]) {
-    run(TAR, ['-xf', await download('11_NotoSerifCJKhk.zip'), '-C', CACHE, '--strip-components', '2', NOTO[0]])
-    if (sha256(noto) !== NOTO[1]) throw new Error(`${noto}: sha256 mismatch`)
+  for (const f of FONTS) fs.copyFileSync(await font(f), path.join(out, f.file))
+  // the fonts' licences travel with them
+  for (const f of fs.readdirSync(path.join(root, 'tex', 'fonts'))) {
+    fs.copyFileSync(path.join(root, 'tex', 'fonts', f), path.join(out, f))
   }
-  fs.copyFileSync(noto, path.join(out, path.basename(noto)))
   // readable by every user of a shared machine, whatever the mode of the source
   for (const f of fs.readdirSync(out)) fs.chmodSync(path.join(out, f), 0o644)
   // Tectonic keys its format cache on this digest, so any change rebuilds the format

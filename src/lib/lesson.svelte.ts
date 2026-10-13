@@ -4,10 +4,14 @@
 // what the teacher chose and keeps the corrections database in step.
 import { tick } from 'svelte'
 import { python, startPython } from './python'
-import { TAURI, kv, appVersion, commands, askSaveDiscard, setFullscreen, loadFonts, type KV } from './platform'
-import type { Item, Kind, Lesson, Row } from './types'
+import { TAURI, kv, appVersion, commands, askSaveDiscard, setFullscreen, loadFont, type KV } from './platform'
+import type { Font, Item, Kind, Lesson, PdfOption, Row } from './types'
+import fontList from '../../py/fonts.json'
 
 export const KIND_LABEL: Record<Kind, string> = { char: 'Character', word: 'Word', sentence: 'Sentence' }
+export const FONTS = fontList as Font[]
+export const fontById = (id: string) => FONTS.find(f => f.id === id)!
+const defaultFont = (kind: Font['kind']) => FONTS.find(f => f.kind === kind && f.default)!.id
 const KIND_ORDER: (Kind | undefined)[] = [undefined, 'char', 'word', 'sentence']
 
 // --- positions within a row ---------------------------------------------------
@@ -59,10 +63,12 @@ export type Editor = {
   anchor: DOMRect
 }
 
-/** a new lesson keeps the author, the students' language and the tone chart choice */
+/** a new lesson keeps the author, the students' language, the fonts and the PDF settings */
 function blank(prev: Lesson | null): Lesson {
   return { format: 1, title: '', author: prev?.author ?? '', date: '', audience: prev?.audience ?? 'en',
-    toneChart: prev?.toneChart ?? false, text: '', words: {}, spots: {}, kinds: {} }
+    toneChart: prev?.toneChart ?? false, evenSpacing: prev?.evenSpacing ?? true, fancy: prev?.fancy ?? true,
+    separatePages: prev?.separatePages ?? false, chineseFont: prev?.chineseFont ?? defaultFont('chinese'),
+    jyutpingFont: prev?.jyutpingFont ?? defaultFont('jyutping'), text: '', words: {}, spots: {}, kinds: {} }
 }
 
 const clampSize = (px: number) => Math.max(16, Math.min(72, px))
@@ -72,16 +78,18 @@ class Store {
   path = $state<string | null>(null)
   dirty = $state(false)
   size = $state(28)
+  fancyPreview = $state(true)
   ready = $state(false)
   loadError = $state<string | null>(null)
   exporting = $state(false)
   present = $state(false)
   editor = $state<Editor | null>(null)
   dialog = $state(false)
+  settingsOpen = $state(false)
   toast = $state<{ text: string; error: boolean } | null>(null)
   flash = $state<number[]>([])
 
-  /** the rows depend only on the text and the corrections, not on the title or the audience */
+  /** the rows depend only on the text, the corrections and the fonts, not on the title or the audience */
   rows: Row[] = $derived.by(() => (this.ready ? python.render(this.readingInput()) : []))
 
   /** characters without a reading, which keep the PDF from being made */
@@ -90,13 +98,16 @@ class Store {
       ? row.items.flatMap((it, i) => (it.cjk && !it.r ? [[r, i] as [number, number]] : []))
       : [])))
 
+  /** printed characters the chosen fonts have no glyph for, which another font prints or nothing does */
+  lacking: Item[] = $derived(this.rows.flatMap(row => (row.cjk && !row.duplicate ? row.items.filter(it => it.nofont) : [])))
+
   correctionCount = $derived(Object.keys(this.lesson.words).length
     + Object.values(this.lesson.spots).reduce((n, marks) => n + Object.keys(marks).length, 0))
 
   /** the parts of the lesson that py/app.py reads to render (and to offer candidates) */
   readingInput(): Lesson {
-    const { text, words, spots, kinds } = this.lesson
-    return $state.snapshot({ text, words, spots, kinds }) as Lesson
+    const { text, words, spots, kinds, chineseFont, jyutpingFont } = this.lesson
+    return $state.snapshot({ text, words, spots, kinds, chineseFont, jyutpingFont }) as Lesson
   }
 
   #settings!: KV
@@ -114,7 +125,7 @@ class Store {
     this.path = (await this.#settings.get<string>('path')) ?? null
     this.dirty = (await this.#settings.get<boolean>('dirty')) ?? false
     this.size = clampSize((await this.#settings.get<number>('size')) ?? 28)
-    loadFonts()
+    this.fancyPreview = (await this.#settings.get<boolean>('fancyPreview')) ?? true
     const testing = await commands.selfTest()
     const start = performance.now()
     try {
@@ -131,14 +142,19 @@ class Store {
     if (testing) this.#selfTest(performance.now() - start)
   }
 
-  // run with --self-test <file>: read a sample with a word and a spot correction,
-  // then let the app compile it and write the report (src-tauri/src/main.rs)
-  #selfTest(loadMs: number) {
+  // run with --self-test <file>: load every font in the window, read a sample with a
+  // word and a spot correction, then let the app compile it and write the report
+  // (src-tauri/src/main.rs)
+  async #selfTest(loadMs: number) {
     const sample: Lesson = { ...blank(null), title: 'self-test', toneChart: true, text: '銀行\n佢𠮶度好多人。\n我哋去銀行。',
       words: { 銀行: 'ngan4 haang4' }, spots: { '佢𠮶度好多人。': { 1: 'go2' } } }
     const v = this.#versions
+    const loaded = await Promise.all(FONTS.map(f => loadFont(f.file)))
     const report = [`app ${v.app}, xjyutping-py ${v.xjyutping_py}, xjyutping-tex ${v.xjyutping_tex}`,
       `python loaded in ${Math.round(loadMs)} ms`]
+    const refused = FONTS.map(f => f.file).filter((_, k) => !loaded[k])
+    report.push(`fonts loaded in the window: ${FONTS.length - refused.length} of ${FONTS.length}`)
+    if (refused.length) return void commands.selfTestDone([...report, `failed: fonts ${refused.join(', ')}`].join('\n'), null)
     try {
       for (const row of python.render(sample)) {
         report.push(`${row.line}: ${row.items.filter(i => i.cjk).map(i => i.r).join(' ')} (${row.kind})`)
@@ -170,7 +186,7 @@ class Store {
     this.#settings.set('dirty', this.dirty)
   }
 
-  set<K extends 'title' | 'author' | 'date' | 'audience' | 'toneChart'>(field: K, value: Lesson[K]) {
+  set<K extends 'title' | 'author' | 'date' | 'audience' | 'chineseFont' | 'jyutpingFont' | PdfOption>(field: K, value: Lesson[K]) {
     this.lesson[field] = value
     this.changed()
   }
@@ -178,6 +194,11 @@ class Store {
   setSize(px: number) {
     this.size = clampSize(px)
     this.#settings.set('size', this.size)
+  }
+
+  setFancyPreview(on: boolean) {
+    this.fancyPreview = on
+    this.#settings.set('fancyPreview', on)
   }
 
   async setPresent(on: boolean) {
@@ -357,13 +378,19 @@ class Store {
       return
     }
     if (!TAURI) return this.notify('Generate needs the installed app.', true)
+    // the characters another font prints, as they are now
+    const swapped = this.lacking.filter(it => it.printedIn)
     this.exporting = true
     this.notify('Generating… (the first time also prepares the TeX engine, which takes longer)')
     try {
       const res = await commands.exportPdf(python.makeTex($state.snapshot(this.lesson) as Lesson), this.lesson.title || 'lesson')
-      if (!res.path) this.notify('The PDF was not saved.')
-      else this.notify(`Saved ${res.path}` + (res.missing.length
-        ? `. No glyph in the fonts, printed blank: ${res.missing.join(' ')}` : ''))
+      if (!res.path) return this.notify('The PDF was not saved.')
+      const replaced = [...new Set(swapped.map(it => it.c))]
+      const fonts = [...new Set(swapped.map(it => fontById(it.nofont!).name))]
+      this.notify(`Saved ${res.path}`
+        + (replaced.length ? `. Not in ${fonts.join(' or ')}, printed in another font: ${replaced.join(' ')}` : '')
+        + (res.missing.length ? `. In no font, printed blank: ${res.missing.join(' ')}` : ''),
+        false, replaced.length + res.missing.length > 0)
     } catch (e) {
       this.notify(String(e).trim().split('\n').pop()!, true)
     } finally {

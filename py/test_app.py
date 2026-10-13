@@ -259,3 +259,71 @@ def test_sentences_are_written_out_with_lines_for_notes():
     # one writing line per 15 characters, at most three
     blocks = tex(f'{short}\n{long}').split('\\begin{minipage}')[1:]
     assert [b.count('\\hrulefill') for b in blocks] == [1, 2]
+
+
+def test_pdf_options():
+    text = '好\n銀行\n我哋去銀行。'
+    default = tex(text)
+    assert 'fancy=true' in default
+    assert '\\clist_map_inline:nn { dei6,heoi3,hong4,hou2,ngan4,ngo5 }' in default and '\\clearpage' not in default
+    assert '>{\\centering\\arraybackslash}m{8.8cm}' in default
+    plain = tex(text, evenSpacing=False, fancy=False, separatePages=True)
+    assert 'fancy=false' in plain and '\\AtBeginDocument' not in plain
+    # characters stay on the first page, the next two sections start their own
+    assert plain.count('\\clearpage') == 2 and plain.index('{Characters}') < plain.index('\\clearpage')
+    assert tex('銀行', separatePages=True).count('\\clearpage') == 0
+    got = json.loads(app.clean(json.dumps(lesson('x', fancy='yes', separatePages=True))))['lesson']
+    assert (got['fancy'], got['evenSpacing'], got['separatePages']) == (True, True, True)
+
+
+def test_every_font_prints_the_template_and_jyutping():
+    fixed = ''.join(v if isinstance(v, str) else ''.join(v.values()) for t in app.TEXT.values() for v in t.values())
+    fixed += ''.join(t[7] for t in app.TONES) + '年月日：'
+    for font in app.FONTS.values():
+        chars = fixed if font['kind'] == 'chinese' else 'abcdefghijklmnopqrstuvwxyz0123456789 ,.!?;:()"~-'
+        lacking = [c for c in chars if not c.isspace() and not app._in(app._glyph_ranges(font['id']), c)]
+        assert not lacking, (font['id'], lacking)
+
+
+def test_chosen_fonts_in_the_preamble_and_lessons():
+    default = tex('好')
+    assert '\\setCJKmainfont{I.Ming-8.10.ttf}' in default
+    assert '\\newcommand\\jyutpingfont{\\normalfont}' in default and 'font=\\jyutpingfont}' in default
+    other = next(f for f in app.FONTS.values() if f['kind'] == 'chinese' and not f.get('default'))
+    assert f"\\setCJKmainfont{{{other['file']}}}" in tex('好', chineseFont=other['id'])
+    # an unknown font, or one of the other kind, falls back to the default
+    got = json.loads(app.clean(json.dumps(lesson('x', chineseFont='latin-modern', jyutpingFont='nope'))))['lesson']
+    assert (got['chineseFont'], got['jyutpingFont']) == ('iming', 'latin-modern')
+    latin = [f for f in app.FONTS.values() if f['kind'] == 'jyutping' and not f.get('texlive')]
+    for f in latin:
+        body = tex('銀行', jyutpingFont=f['id'])
+        assert f"\\newfontfamily\\jyutpingfont{{{f['file']}}}" in body and '\\setstretch{1.1}\\jyutpingfont}' in body
+
+
+def test_characters_the_chosen_font_lacks():
+    # I.Ming has no 兿, which Noto Serif CJK HK prints; Noto has no 𠮶, which I.Ming prints
+    assert [(it['nofont'], it['printedIn']) for it in rows('兿好')[0]['items']] == [('iming', 'noto-serif-hk'), (None, None)]
+    it = rows('兿𠮶', chineseFont='noto-serif-hk')[0]['items']
+    assert (it[0]['nofont'], it[1]['nofont'], it[1]['printedIn']) == (None, 'noto-serif-hk', 'iming')
+    # the PDF is still made, with the other Chinese fonts as fallbacks in the order of fonts.json
+    body = tex('兿好', title='兿')
+    others = ', '.join('{%s}' % f['file'] for f in app.FONTS.values() if f['kind'] == 'chinese' and f['id'] != 'iming')
+    assert '\\usepackage[AutoFallBack=true]{xeCJK}' in body and f'\\setCJKfallbackfamilyfont{{\\CJKrmdefault}}{{{others}}}' in body
+    # Latin text goes to Latin Modern, without fallback, and in the tables also to the
+    # Jyutping font; full-width punctuation and curly quotes go to the Chinese font
+    r = rows('好α“好”')[0]
+    assert [it['nofont'] for it in r['items']] == [None, 'latin-modern', None, None, None]
+    assert r['items'][1]['printedIn'] is None
+    assert app._lacking('“', app.DEFAULT_FONTS) is None and app._in(app.CJK_FONT_RANGES, '“')
+    assert rows('')[0]['items'] == [] and rows('abc')[0]['items'][0]['nofont'] is None
+
+
+def test_marks_private_use_and_malformed_fonts():
+    # xeCJK's CM marks go to the Chinese font without fallback; private-use
+    # characters go to Latin Modern; variation selectors need no glyph
+    assert [(it['nofont'], it['printedIn']) for it in rows('好〪')[0]['items']][1] == ('iming', None)
+    assert rows('好〪', chineseFont='noto-serif-hk')[0]['items'][1]['nofont'] is None
+    assert rows('好')[0]['items'][1]['nofont'] == 'latin-modern'
+    assert rows('好︀')[0]['items'][1]['nofont'] is None
+    got = json.loads(app.clean(json.dumps(lesson('x', chineseFont=[], jyutpingFont={}, audience=['en']))))['lesson']
+    assert (got['chineseFont'], got['jyutpingFont'], got['audience']) == ('iming', 'latin-modern', 'en')

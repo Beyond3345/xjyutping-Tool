@@ -26,7 +26,9 @@ blank column for the students, while each sentence is written out with its
 Jyutping above the characters and lines under it. The blank column and the
 lines are headed English or 普通話 for translation, or 筆記 for notes when the
 students already speak Cantonese, and the vocabulary list can start with a
-chart of the six tones.
+chart of the six tones. Settings also chooses the Chinese font and the
+Jyutping font, which the window and the PDF both use, evenly spaced or tightly
+packed characters, fancy tone marks and a new page for each part.
 
 ## Installing
 
@@ -52,7 +54,7 @@ installer cannot add it.
 ## Using the tool
 
 1. Enter the title, the author and, if it should not be today, the date
-2. Choose whether the students speak English, Mandarin (普通話) or Cantonese (廣東話), and tick Tone chart if the list should start with the six tones
+2. In Settings (the gear), choose whether the students speak English, Mandarin (普通話) or Cantonese (廣東話), and the other options of the PDF
 3. Type the vocabulary and sentences on the left, one per line
 4. Check the readings on the right and correct any by clicking the character
 5. Click Generate PDF and choose where to save the vocabulary list
@@ -60,8 +62,11 @@ installer cannot add it.
 Characters that xjyutping has to guess between several readings are underlined
 with orange dots, so they are the ones to check first. A red `?` marks a
 character with no reading in the data, which must be given one before the PDF
-can be made, and a dashed red box marks a character that neither font of the
-PDF contains, which would print as a blank.
+can be made. A dashed orange box marks a character the chosen Chinese font
+lacks, which the PDF prints in another of the bundled fonts, and a dashed red
+box one that prints as a blank, since no bundled Chinese font has it or, for
+a Latin letter, Latin Modern or the Jyutping font lacks it. Neither stops the
+PDF.
 
 ### Correcting a reading
 
@@ -93,6 +98,51 @@ Sentence). A line that appears twice is printed once.
 Characters and words are printed in tables, and sentences are written out on
 their own, each with its Jyutping above the characters and one to three lines
 under it for the translation or notes, depending on its length.
+
+### Settings
+
+The gear next to Corrections opens the settings. Under Fonts are the
+Chinese font of the characters and the Jyutping font of the readings, which
+the window and the PDF both use, with a sample.
+
+| Chinese font | Style | Notes |
+| --- | --- | --- |
+| I.Ming (default) | 明體 | old-print Ming forms, the widest repertoire |
+| Noto Serif CJK HK | 宋體 | Hong Kong reference forms |
+| Chiron Hei HK | 黑體 | Hong Kong forms |
+| GenSenRounded TW | 圓體 | rounded, common print forms |
+| JyunsaiKaai | 楷書 | Hong Kong school forms; fewer rare characters |
+
+| Jyutping font | Style |
+| --- | --- |
+| Latin Modern Roman (default) | serif, the font of the rest of the PDF |
+| Andika | sans designed for beginning readers |
+| Atkinson Hyperlegible | high-legibility sans |
+| Source Sans 3 | sans |
+| Source Serif 4 | serif |
+
+A character the chosen Chinese font lacks is printed in the first of the
+other Chinese fonts, in the order above, that has it. The preview marks it
+with a dashed orange box whose tooltip names both fonts, and Generate PDF
+lists such characters after saving. Latin letters of the lines are set in
+Latin Modern Roman, and in the Jyutping column of the tables in the Jyutping
+font, without such a fallback.
+
+Under Preview, Fancy Jyutping (on by default) draws the tone strokes of the
+PDF above the characters on screen too; it is a setting of the app, not of
+the lesson. The settings under PDF are,
+
+| Setting | Default | Meaning |
+| --- | --- | --- |
+| The students speak | English | Heads the blank column and the lines: English, 普通話, or 筆記 for notes. |
+| Evenly spaced characters | on | Every character is as wide as the longest Jyutping of the lesson. Off, each character is only as wide as its own Jyutping. |
+| Fancy Jyutping | on | The tone numbers above the characters become strokes tracing the pitch with a small number, as the `fancy` option of xjyutping draws them. The Jyutping column keeps the plain numbers. |
+| Each section on its own page | off | Words and sentences each start a new page; the characters stay on the first page. |
+| Tone chart | off | The list starts with a chart of the six tones. |
+
+The fonts and the PDF settings are kept in the lesson, and a new lesson keeps
+those of the previous one. Lessons saved before these settings existed open
+with the defaults.
 
 ### The tone chart
 
@@ -146,7 +196,11 @@ PDF.
 - The PDF is typeset by [Tectonic](https://tectonic-typesetting.github.io)
   0.17.0, a self-contained XeTeX engine shipped inside the app, from the
   TeX Live 2024 files the template needs (`tex/tl2024/`), the xjyutping package and
-  the fonts I.Ming and Noto Serif CJK HK (for the characters I.Ming lacks).
+  the fonts of `py/fonts.json`. The chosen Chinese font is xeCJK's main font
+  and the other Chinese fonts are its fallbacks, which it loads only when a
+  character needs one. `py/glyphs/` holds the code points of each font, from
+  which `py/app.py` tells which characters a font lacks and which font prints
+  them instead, and the window shows the chosen fonts from the same files.
   Every entry is written with `\xjyutping{<entry>}{<readings>}`, which gives
   each character the reading shown on screen, so the PDF always matches the
   window.
@@ -216,7 +270,23 @@ The first step compiles `tests/fixture-lesson.json`, with the tone chart, for
 the three audiences against the official TeX Live 2024 bundle of Tectonic,
 downloading only the files that are used, and copies them into `tex/tl2024/`.
 The second compiles the fixture again from the bundle of the app, with an
-empty cache and without network.
+empty cache and without network, for the three audiences and once with each
+other font.
+
+### Adding a font
+
+A font must be a single static face (`.ttf` or `.otf`, not variable and not a
+collection) under a licence that allows bundling it.
+
+1. Add it to `py/fonts.json` with a pinned URL (a release asset, or a raw file
+   at a commit), its sha256 and, for a font inside an archive, the archive's
+   sha256 and the path of the font in it. The Chinese fonts are tried as
+   fallbacks in the order of the file.
+2. Add its copyright and licence to `tex/fonts/FONTS.md`, and its licence text
+   to `tex/fonts/` if it is a new one
+3. Run `node scripts/vendor.mjs`, then `python3 scripts/glyphs.py` (needs
+   fontTools), which writes `py/glyphs/<id>.txt`
+4. Run the tests and `scripts/compile-check.sh`
 
 ## Testing
 
@@ -228,8 +298,8 @@ empty cache and without network.
 - `npm run check` checks the types of the interface with svelte-check, which
   also runs before every build
 - `cargo test` in `src-tauri` tests the file name and log helpers
-- `xjyutping-Tool --self-test <file>` runs a built app on a sample lesson with
-  corrections, compiles it with the bundled engine without asking where to
+- `xjyutping-Tool --self-test <file>` runs a built app, loads every bundled
+  font in its window, reads a sample lesson with corrections, compiles it with the bundled engine without asking where to
   save, writes a report to the file and quits with 0 on success (on macOS the
   program is `xjyutping-Tool.app/Contents/MacOS/xjyutping-Tool`, and CI runs
   it on Windows)
@@ -245,8 +315,11 @@ The app also ships the following, each under its own licence.
 | Pyodide | MPL 2.0 |
 | Tectonic | MIT |
 | TeX Live 2024 files in `tex/tl2024/` | the free licences of each package, mostly LPPL; see `tex/NOTICE.md` |
-| I.Ming 8.10 | IPA Font License 1.0 |
-| Noto Serif CJK HK | SIL Open Font License 1.1 |
+| I.Ming 8.10 | IPA Font License Agreement 1.0 |
+| The other fonts of `py/fonts.json` | SIL Open Font License 1.1, Latin Modern under the GUST Font License |
+
+The fonts are bundled unmodified, with their copyright lines and licence texts
+in `tex/fonts/`, which the app also ships.
 
 ## Troubleshooting
 
@@ -263,6 +336,8 @@ and later ones take about 2 s.
 
 ### A character prints as a blank
 
-Neither I.Ming nor Noto Serif CJK HK contains it, which the dashed red box
-shows before generating. The tool lists such characters after Generate PDF,
-and replacing the character with a common variant is the only fix.
+None of the bundled fonts contains it, which the dashed red box shows before
+generating. The tool lists such characters after Generate PDF, and replacing
+the character with a common variant is the only fix. A Latin letter in the red
+box (such as α) is missing from Latin Modern or the Jyutping font, which have
+no fallback.

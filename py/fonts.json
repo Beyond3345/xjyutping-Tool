@@ -1,0 +1,113 @@
+[
+ {
+  "id": "iming",
+  "kind": "chinese",
+  "name": "I.Ming",
+  "style": "明體",
+  "file": "I.Ming-8.10.ttf",
+  "url": "https://github.com/ichitenfont/I.Ming/releases/download/8.10/I.Ming-8.10.ttf",
+  "sha256": "cba13b75b050d671b611d0063147262e421e14359ad4530948b070f56111f0f3",
+  "licence": "IPA Font License 1.0",
+  "default": true
+ },
+ {
+  "id": "noto-serif-hk",
+  "kind": "chinese",
+  "name": "Noto Serif CJK HK",
+  "style": "宋體",
+  "file": "NotoSerifCJKhk-Regular.otf",
+  "url": "https://github.com/notofonts/noto-cjk/releases/download/Serif2.003/11_NotoSerifCJKhk.zip",
+  "archiveSha256": "2eaf73871cbc53e72bb1021d760eb64b395955d33fdc560964e15b429a64c288",
+  "member": "OTF/TraditionalChineseHK/NotoSerifCJKhk-Regular.otf",
+  "sha256": "e687d5674d83acf62d1264da5d002c5401363418abb98dca0836d38d88953708",
+  "licence": "SIL Open Font License 1.1"
+ },
+ {
+  "id": "chiron-hei-hk",
+  "kind": "chinese",
+  "name": "Chiron Hei HK",
+  "style": "黑體",
+  "file": "ChironHeiHK-R.otf",
+  "url": "https://raw.githubusercontent.com/chiron-fonts/chiron-hei-hk/106b59c99e6164b26a11d46214a98dd68386b31a/STATIC_OTF/ChironHeiHK-R.otf",
+  "sha256": "72f68279a78a118b469bc683a1ab12364a5a3c244ee592da441d4a3cb0eda4b1",
+  "licence": "SIL Open Font License 1.1"
+ },
+ {
+  "id": "gensenrounded-tw",
+  "kind": "chinese",
+  "name": "GenSenRounded TW",
+  "style": "圓體",
+  "file": "GenSenRounded2TW-R.otf",
+  "url": "https://github.com/ButTaiwan/gensen-font/releases/download/v2.100/GenSenRounded2TW-otf.zip",
+  "archiveSha256": "c5a18c0661c0b26effe5503431f2fee176137f6451be3ae37b9787c6179cf325",
+  "member": "GenSenRounded2TW-R.otf",
+  "sha256": "092285878f1d9441c790e5d6a98e806bd508602ad0a8a55511b6fb0a71a25fed",
+  "licence": "SIL Open Font License 1.1"
+ },
+ {
+  "id": "jyunsaikaai",
+  "kind": "chinese",
+  "name": "JyunsaiKaai",
+  "style": "楷書",
+  "file": "JyunsaiKaai-Regular.ttf",
+  "url": "https://github.com/ItMarki/jyunsaikaai/releases/download/v0.3.1/JyunsaiKaai-Regular.ttf",
+  "sha256": "945bffd30e313f316df19e4fd2704e944380092d90f764b909076e3aad2631d1",
+  "licence": "SIL Open Font License 1.1"
+ },
+ {
+  "id": "latin-modern",
+  "kind": "jyutping",
+  "name": "Latin Modern Roman",
+  "style": "serif",
+  "file": "lmroman10-regular.otf",
+  "texlive": true,
+  "licence": "GUST Font License",
+  "default": true
+ },
+ {
+  "id": "andika",
+  "kind": "jyutping",
+  "name": "Andika",
+  "style": "sans for beginning readers",
+  "file": "Andika-Regular.ttf",
+  "url": "https://github.com/silnrsi/font-andika/releases/download/v7.000/Andika-7.000.zip",
+  "archiveSha256": "88ba6ea41ef4a8e5214b090df8fa2983be1babe4843efaa99cdb6078b0e2c070",
+  "member": "Andika-7.000/Andika-Regular.ttf",
+  "sha256": "27484fdc98d0d63f90407f8266e28295f6fb16d2b13c5024df0214f17152919a",
+  "licence": "SIL Open Font License 1.1"
+ },
+ {
+  "id": "atkinson-hyperlegible",
+  "kind": "jyutping",
+  "name": "Atkinson Hyperlegible",
+  "style": "high-legibility sans",
+  "file": "AtkinsonHyperlegible-Regular.ttf",
+  "url": "https://raw.githubusercontent.com/google/fonts/66928797f271fed5ee428544e7229685e2d90127/ofl/atkinsonhyperlegible/AtkinsonHyperlegible-Regular.ttf",
+  "sha256": "7fb917c89019896d0b52ee84b7cbb3304c18cb90b19a62f5e32712bd23e97669",
+  "licence": "SIL Open Font License 1.1"
+ },
+ {
+  "id": "source-sans-3",
+  "kind": "jyutping",
+  "name": "Source Sans 3",
+  "style": "sans",
+  "file": "SourceSans3-Regular.otf",
+  "url": "https://github.com/adobe-fonts/source-sans/releases/download/3.052R/OTF-source-sans-3.052R.zip",
+  "archiveSha256": "a4ebbdea20b08ccbd7bf3665a9462454eefdd01d9a6307129d3b3d4672981074",
+  "member": "OTF/SourceSans3-Regular.otf",
+  "sha256": "08df266400933d3178d081a45f94a08814c3e55b4b7dd2e0ff69cb1329f13ab6",
+  "licence": "SIL Open Font License 1.1"
+ },
+ {
+  "id": "source-serif-4",
+  "kind": "jyutping",
+  "name": "Source Serif 4",
+  "style": "serif",
+  "file": "SourceSerif4-Regular.otf",
+  "url": "https://github.com/adobe-fonts/source-serif/releases/download/4.005R/source-serif-4.005_Desktop.zip",
+  "archiveSha256": "549fdb8f9a682bd06944298621404969f6de77c2e422ff3b8244a1dcd6a0c425",
+  "member": "source-serif-4.005_Desktop/OTF/SourceSerif4-Regular.otf",
+  "sha256": "edf160d0d584deee8a3bb2c3371b2a7624ca63580fbe02c57c1f4c91e84d8787",
+  "licence": "SIL Open Font License 1.1"
+ }
+]

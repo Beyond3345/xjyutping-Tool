@@ -47,21 +47,69 @@ def _known_syllables():
             for s in re.findall(r'\b[a-z]+[1-6]\b', (data / name).read_text(encoding='utf8'))}
 
 
+# the fonts the teacher chooses from (py/fonts.json): a Chinese font for the
+# characters and a Jyutping font for the readings; Latin text of the lines is
+# set in Latin Modern, the document font. A character the Chinese font lacks is
+# printed in the first of the other Chinese fonts, in the order of the file,
+# that has it.
+FONTS = {f['id']: f for f in json.loads(Path(__file__).with_name('fonts.json').read_text(encoding='utf8'))}
+DEFAULT_FONTS = {f"{f['kind']}Font": f['id'] for f in FONTS.values() if f.get('default')}
+LATIN = next(f['id'] for f in FONTS.values() if f.get('texlive'))
+# The code points xeCJK 3.9 sets in the Chinese font (its classes CJK,
+# FullLeft, FullRight and HangulJamo, with the CJK class of PREAMBLE), read
+# from \XeTeXcharclass; everything else is set in the Latin font.
+CJK_FONT_RANGES = [tuple(int(x, 16) for x in r.split('-')) for r in """
+    B7-B7 2EA-2EB 1100-11FF 2013-2014 2018-2019 201C-201D 2025-2027 2E3A-2E3A 2E80-2FDF
+    2FF0-3029 3030-3098 309B-A4CF A960-A97F AC00-D7FF F900-FAFF FE10-FE1F FE30-FE50 FE52-FE52
+    FE54-FE57 FE59-FE5E FE69-FE6A FF00-FFEF 16FE0-18D7F 1AFF0-1B2FF 1F200-1F2FF 20000-2A6DF
+    2A700-2EE5F 2F800-2FA1F 30000-323AF""".split()]
+# combining marks of xeCJK's class CM, set in the Chinese font without fallback
+CJK_MARKS = [(0x302A, 0x302F), (0x3099, 0x309A)]
+
+
+def _in(ranges, ch):
+    cp = ord(ch)
+    k = bisect.bisect_left(ranges, cp, key=lambda g: g[1])
+    return k < len(ranges) and ranges[k][0] <= cp
+
+
 @functools.cache
-def _glyph_ranges():
-    """The code point ranges of I.Ming and Noto Serif CJK HK, from glyphs.txt."""
+def _glyph_ranges(font):
+    """The code point ranges font can print, from glyphs/<id>.txt (scripts/glyphs.py)."""
     ranges = []
-    for row in Path(__file__).with_name('glyphs.txt').read_text().split():
+    for row in Path(__file__).with_name('glyphs').joinpath(f'{font}.txt').read_text().split():
         lo, _, hi = row.partition('-')
         ranges.append((int(lo, 16), int(hi or lo, 16)))
     return ranges
 
 
-def _printable(ch):
-    """False when neither font of the PDF has the character."""
-    ranges, cp = _glyph_ranges(), ord(ch)
-    k = bisect.bisect_left(ranges, cp, key=lambda g: g[1])
-    return k < len(ranges) and ranges[k][0] <= cp
+def _fonts(lesson):
+    return {k: lesson[k] if isinstance(lesson.get(k), str) and lesson[k] in FONTS
+            and FONTS[lesson[k]]['kind'] == FONTS[v]['kind'] else v for k, v in DEFAULT_FONTS.items()}
+
+
+def _fallbacks(fonts):
+    return [f for f, v in FONTS.items() if v['kind'] == 'chinese' and f != fonts['chineseFont']]
+
+
+def _lacking(ch, fonts, jyutping=False):
+    """For a character the chosen font has no glyph for: that font and the font
+    that prints it instead (None: it prints as a blank); None if nothing lacks
+    it. In the Jyutping column (jyutping=True) Latin text is in the Jyutping font."""
+    # spaces, controls (escape() makes them spaces), format characters and
+    # variation selectors need no glyph of their own
+    if ch.isspace() or unicodedata.category(ch) in ('Cc', 'Cf', 'Cs') or 0xFE00 <= ord(ch) <= 0xFE0F \
+            or 0xE0100 <= ord(ch) <= 0xE01EF:
+        return None
+    if _in(CJK_MARKS, ch):
+        font, others = fonts['chineseFont'], []
+    elif _in(CJK_FONT_RANGES, ch):
+        font, others = fonts['chineseFont'], _fallbacks(fonts)
+    else:  # xeCJK falls back for Chinese text only
+        font, others = fonts['jyutpingFont'] if jyutping else LATIN, []
+    if _in(_glyph_ranges(font), ch):
+        return None
+    return font, next((f for f in others if _in(_glyph_ranges(f), ch)), None)
 
 
 def _read_line(line, words, spots):
@@ -83,8 +131,6 @@ def _read_line(line, words, spots):
         items.append({'c': c, 'a': r, 'r': r, 'type': segs[n].type if n is not None else None,
                       'seg': n, 'src': 'auto' if r else None, 'cjk': _is_cjk(c, r), 'key': None,
                       'at': None})
-    for it in items:
-        it['glyph'] = not it['cjk'] or _printable(it['c'])
 
     def joined(n):
         # a word of the data written without spaces; one that skips a space
@@ -133,16 +179,25 @@ def _auto_kind(line, items, seg_pos):
 
 
 def _rows(lesson):
-    """Every line of the lesson with its items, segments and kinds."""
+    """Every line of the lesson with its items, segments and kinds, and per
+    item the chosen font that lacks it ('nofont') with the font that prints it
+    instead ('printedIn', None for a blank); a line without Chinese characters
+    is not printed, so it lacks nothing."""
     words, spots, kinds = lesson.get('words', {}), lesson.get('spots', {}), lesson.get('kinds', {})
+    fonts = _fonts(lesson)
     rows, seen = [], set()
     for line in _lines(lesson.get('text', '')):
         items, seg_pos = _read_line(line, words, spots.get(line, {}))
         has_cjk = any(it['cjk'] for it in items)
         auto = _auto_kind(line, items, seg_pos) if has_cjk else None
+        kind = kinds.get(line, auto) if has_cjk else None
+        for it in items:
+            # the tables also write the line's other characters in the Jyutping column
+            lack = has_cjk and (_lacking(it['c'], fonts) or kind != 'sentence' and not it['cjk']
+                                and _lacking(JYUTPING_PUNCT.get(it['c'], it['c'])[0], fonts, True))
+            it['nofont'], it['printedIn'] = lack or (None, None)
         rows.append({'line': line, 'items': items, 'segs': seg_pos, 'cjk': has_cjk,
-                     'auto': auto, 'kind': kinds.get(line, auto) if has_cjk else None,
-                     'duplicate': has_cjk and line in seen})
+                     'auto': auto, 'kind': kind, 'duplicate': has_cjk and line in seen})
         if has_cjk:
             seen.add(line)
     return rows
@@ -208,7 +263,7 @@ def clean(lesson_json):
             spots[line] = good
     kinds = {k: v for k, v in part('kinds').items() if v in ('char', 'word', 'sentence')}
     lesson.update(words=words, spots=spots, kinds=kinds, audience=_audience(lesson),
-                  toneChart=lesson.get('toneChart') is True)
+                  toneChart=lesson.get('toneChart') is True, **_options(lesson), **_fonts(lesson))
     for field in ('title', 'author', 'date', 'text'):
         lesson[field] = str(lesson.get(field) or '')
     return json.dumps({'lesson': lesson, 'dropped': dropped}, ensure_ascii=False)
@@ -331,8 +386,11 @@ PREAMBLE = r"""\documentclass[a4paper,11pt]{article}
 \usepackage[AutoFallBack=true]{xeCJK}
 % xeCJK 3.9 stops its CJK class at U+3134F; the data has characters up to U+323AF
 \xeCJKDeclareCharClass{CJK}{"2EBF0 -> "2EE5F, "31350 -> "323AF}
-\setCJKmainfont{I.Ming-8.10.ttf}
-\setCJKfallbackfamilyfont{\CJKrmdefault}{NotoSerifCJKhk-Regular.otf}
+% the chosen fonts; a character the Chinese font lacks comes from the first of
+% the other Chinese fonts that has it (each is loaded only when first needed)
+\setCJKmainfont{CHINESE}
+\setCJKfallbackfamilyfont{\CJKrmdefault}{FALLBACK}
+JYUTPING
 \usepackage{parskip}
 \usepackage{setspace}
 \usepackage{array}
@@ -342,7 +400,26 @@ PREAMBLE = r"""\documentclass[a4paper,11pt]{article}
 \pagestyle{plain}
 \tracinglostchars=1
 \renewcommand\arraystretch{1.6}
-\xjyutpingsetup{ratio=0.5}
+"""
+# Evenly spaced: every character as wide as the widest Jyutping of the lesson,
+# as xjyutping's width=auto does for a block, which \xjyutping{..}{..} lacks.
+# It is measured with the package's own ruby, so fancy marks count, at \Large,
+# the size of every entry.
+EVEN = r"""\ExplSyntaxOn
+\AtBeginDocument
+  {
+    \group_begin:
+      \Large
+      \dim_gzero:N \g_tmpa_dim
+      \clist_map_inline:nn { SYLLABLES }
+        {
+          \__xjyutping_ruby:nn {#1} { s }
+          \dim_gset:Nn \g_tmpa_dim { \dim_max:nn { \g_tmpa_dim } { \box_wd:N \l__xjyutping_ruby_box } }
+        }
+    \group_end:
+    \exp_args:Ne \xjyutpingsetup { width = \dim_use:N \g_tmpa_dim }
+  }
+\ExplSyntaxOff
 """
 # loaded only for the tone chart, so the bundle needs them only then
 CHART_PACKAGES = r"""\usepackage{pict2e}
@@ -350,8 +427,16 @@ CHART_PACKAGES = r"""\usepackage{pict2e}
 """
 
 
+# the options of the PDF with their defaults, for lessons saved without them
+OPTIONS = {'evenSpacing': True, 'fancy': True, 'separatePages': False}
+
+
 def _audience(lesson):
-    return lesson.get('audience') if lesson.get('audience') in TEXT else 'en'
+    return lesson['audience'] if isinstance(lesson.get('audience'), str) and lesson['audience'] in TEXT else 'en'
+
+
+def _options(lesson):
+    return {k: lesson[k] if isinstance(lesson.get(k), bool) else v for k, v in OPTIONS.items()}
 
 
 def escape(s):
@@ -409,7 +494,9 @@ def make_tex(lesson_json):
     audience = _audience(lesson)
     text = TEXT[audience]
     chart = lesson.get('toneChart') is True
+    opts = _options(lesson)
     groups = {'char': [], 'word': [], 'sentence': []}
+    fonts = _fonts(lesson)
     missing = []
     for n, row in enumerate(_rows(lesson), 1):
         if not row['cjk'] or row['duplicate']:
@@ -425,9 +512,11 @@ def make_tex(lesson_json):
         if not groups[kind]:
             continue
         align, size, w1, w2, w3 = COLUMNS[kind]
+        if opts['separatePages'] and body:
+            body.append('\\clearpage')
         body.append(f"\\section*{{{text['sections'][kind]}}}\n"
                     f"\\begin{{longtable}}{{>{{{align}\\arraybackslash{size}}}m{{{w1}}}"
-                    f"|>{{{align}\\arraybackslash\\setstretch{{1.1}}}}m{{{w2}}}|m{{{w3}}}}}\n"
+                    f"|>{{{align}\\arraybackslash\\setstretch{{1.1}}\\jyutpingfont}}m{{{w2}}}|>{{{align}\\arraybackslash}}m{{{w3}}}}}\n"
                     f"\\normalsize {text['first'][kind]} & {text['jyutping']} & {text['blank']}"
                     "\\\\ \\hline\\hline\n\\endhead")
         for row in groups[kind]:
@@ -436,10 +525,22 @@ def make_tex(lesson_json):
                         f"{escape(_jyutping_cell(row['items']))} & \\\\")
         body.append('\\end{longtable}\n')
     if groups['sentence']:
+        if opts['separatePages'] and body:
+            body.append('\\clearpage')
         body.append(f"\\section*{{{text['sections']['sentence']}}}\n")
         body += [_sentence(row, text, audience) for row in groups['sentence']]
-    preamble = PREAMBLE + (CHART_PACKAGES + _tone_chart(text, audience == 'en') if chart else '')
+    jyutping = FONTS[fonts['jyutpingFont']]
+    preamble = (PREAMBLE.replace('CHINESE', FONTS[fonts['chineseFont']]['file'])
+                .replace('FALLBACK', ', '.join(f"{{{FONTS[f]['file']}}}" for f in _fallbacks(fonts)))
+                # Latin Modern is the document font, with its optical sizes
+                .replace('JYUTPING', r'\newcommand\jyutpingfont{\normalfont}' if jyutping.get('texlive')
+                         else rf"\newfontfamily\jyutpingfont{{{jyutping['file']}}}")
+                + f"\\xjyutpingsetup{{ratio=0.5,fancy={str(opts['fancy']).lower()},font=\\jyutpingfont}}\n")
+    if opts['evenSpacing']:
+        syllables = {it['r'] for kind in groups.values() for row in kind for it in row['items'] if it['cjk']}
+        preamble += EVEN.replace('SYLLABLES', ','.join(sorted(syllables)))
     if chart:
+        preamble += CHART_PACKAGES + _tone_chart(text, audience == 'en')
         body.insert(0, f"\\section*{{{text['tones']}}}\n\\tonechart\n")
     return (preamble
             + f"\\title{{{escape(lesson.get('title', ''))}}}\n"

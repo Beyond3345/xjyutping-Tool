@@ -1,12 +1,13 @@
 <script lang="ts">
   import { onMount } from 'svelte'
-  import { store } from './lib/lesson.svelte'
-  import { setWindowTitle } from './lib/platform'
+  import { store, fontById } from './lib/lesson.svelte'
+  import { setWindowTitle, useFont } from './lib/platform'
   import Header from './components/Header.svelte'
   import TextPane from './components/TextPane.svelte'
   import PreviewPane from './components/PreviewPane.svelte'
   import CorrectionPopover from './components/CorrectionPopover.svelte'
   import CorrectionsDialog from './components/CorrectionsDialog.svelte'
+  import SettingsDialog from './components/SettingsDialog.svelte'
   import Toast from './components/Toast.svelte'
 
   onMount(() => void store.init())
@@ -16,6 +17,10 @@
     const name = store.path ? store.path.split(/[\\/]/).pop()! : store.lesson.title || 'Untitled lesson'
     setWindowTitle(`${name}${store.dirty ? ' •' : ''} — xjyutping-Tool`)
   })
+
+  // the chosen fonts of the lesson, in the window as in the PDF
+  $effect(() => void useFont('--chinese-font', fontById(store.lesson.chineseFont).file))
+  $effect(() => void useFont('--jyutping-font', fontById(store.lesson.jyutpingFont).file))
 
   function onkeydown(e: KeyboardEvent) {
     if (e.key === 'Escape') {
@@ -40,6 +45,7 @@
 </div>
 <CorrectionPopover />
 <CorrectionsDialog />
+<SettingsDialog />
 <Toast />
 
 <style>

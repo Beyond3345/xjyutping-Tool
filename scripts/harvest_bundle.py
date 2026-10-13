@@ -1,7 +1,7 @@
 """Rebuilds tex/tl2024/, the TeX Live 2024 files the app's template needs.
 
 The fixture lesson, with the tone chart, is compiled for the three audiences
-by Tectonic against the official TeX Live 2024 bundle (fetched by range
+and once with each other font by Tectonic against the official TeX Live 2024 bundle (fetched by range
 requests, so only the files used are downloaded), and the files Tectonic
 cached are copied into one flat folder. scripts/vendor.mjs adds xjyutping.sty, its data and the fonts. Run it
 after any change to the template in py/app.py, then run scripts/compile-check.sh:
@@ -45,17 +45,20 @@ def main():
         job.mkdir()
         # the package, its data and the fonts sit next to the document, so they are
         # read from there and stay out of the harvested files
-        for f in ('xjyutping.sty', 'xjyutping-chars.def', 'xjyutping-words.def',
-                  'I.Ming-8.10.ttf', 'NotoSerifCJKhk-Regular.otf'):
+        fonts = [f['file'] for f in app.FONTS.values() if not f.get('texlive')]
+        for f in ['xjyutping.sty', 'xjyutping-chars.def', 'xjyutping-words.def'] + fonts:
             shutil.copy(RES / f, job / f)
-        for audience in ('en', 'zh', 'yue'):
-            lesson['audience'] = audience
-            (job / f'{audience}.tex').write_text(app.make_tex(json.dumps(lesson)), encoding='utf8')
+        # the three audiences, then each other font, as scripts/compile-check.sh
+        jobs = [{'audience': a} for a in ('en', 'zh', 'yue')] + [
+            {'audience': 'en', f"{f['kind']}Font": f['id']} for f in app.FONTS.values() if not f.get('default')]
+        for n, settings in enumerate(jobs):
+            name = f'job{n}'
+            (job / f'{name}.tex').write_text(app.make_tex(json.dumps({**lesson, **settings})), encoding='utf8')
             # Tectonic 0.17.0 panics (ttb_net.rs:185) when a cached index meets an
             # uncached file in a new process, so drop the index before each run
             for index in cache.glob('bundles/data/*.index'):
                 index.unlink()
-            subprocess.run([str(tectonic()), '-b', BUNDLE, '--untrusted', '--keep-logs', f'{audience}.tex'],
+            subprocess.run([str(tectonic()), '-b', BUNDLE, '--untrusted', '--keep-logs', f'{name}.tex'],
                            cwd=job, env={**os.environ, 'TECTONIC_CACHE_DIR': str(cache)}, check=True)
         hashes = list(cache.glob('bundles/hashes/*'))
         if [h.read_text().split()[0] for h in hashes if not h.name.endswith('.lock')] != [BUNDLE_HASH]:

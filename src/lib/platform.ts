@@ -63,13 +63,30 @@ export async function setFullscreen(on: boolean) {
   if (TAURI) await getCurrentWindow().setFullscreen(on)
 }
 
-/** the fonts of the PDF, so that the preview looks like it (system fonts otherwise) */
-export async function loadFonts() {
+const faces = new Map<string, Promise<boolean>>()
+const wanted: Record<string, string> = {}
+
+/** shows a font of the PDF in the window, as the CSS variable (--chinese-font or
+    --jyutping-font) that app.css uses; until it is loaded, and outside the app,
+    the system fonts are used */
+export async function useFont(variable: string, file: string) {
   if (!TAURI) return
-  for (const [family, file] of [['IMing', 'I.Ming-8.10.ttf'], ['NotoSerifHK', 'NotoSerifCJKhk-Regular.otf']]) {
-    try {
-      const face = new FontFace(family, `url("${convertFileSrc(await resolveResource(`texbundle/${file}`))}")`)
+  wanted[variable] = file
+  const ok = await loadFont(file)
+  // a later choice wins over a font that finished loading after it
+  if (wanted[variable] !== file) return
+  if (ok) document.documentElement.style.setProperty(variable, `"xjp ${file}"`)
+  else document.documentElement.style.removeProperty(variable)
+}
+
+/** loads a font file of the texbundle (within the asset scope of tauri.conf.json) as the family "xjp <file>" */
+export function loadFont(file: string) {
+  if (!faces.has(file)) {
+    faces.set(file, (async () => {
+      const face = new FontFace(`xjp ${file}`, `url("${convertFileSrc(await resolveResource(`texbundle/${file}`))}")`)
       document.fonts.add(await face.load())
-    } catch { /* the system fonts in app.css are used instead */ }
+      return true
+    })().catch(() => false))
   }
+  return faces.get(file)!
 }

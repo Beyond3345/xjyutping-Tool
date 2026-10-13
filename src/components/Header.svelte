@@ -29,6 +29,7 @@
     <IconButton icon="save-all" label="Save as… ({mod}⇧S)" disabled={!store.ready} onclick={() => store.save(true)} />
   </nav>
 
+  <IconButton icon="settings" label="Settings" onclick={() => (store.settingsOpen = true)} />
   <button class="btn" onclick={() => (store.dialog = true)} title="The corrections of this lesson, and the export for the maintainer">
     <Icon name="list-checks" /> <span class="wide">Corrections</span>
     {#if store.correctionCount}<span class="badge">{store.correctionCount}</span>{/if}

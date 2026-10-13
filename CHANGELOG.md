@@ -23,6 +23,55 @@ human or agent.
 There are no unreleased changes yet. Add new entries here under
 `### Added`, `### Changed`, `### Fixed` and so on.
 
+## [1.3.0] - 2026-10-13
+
+### Added
+
+- A choice of fonts in Settings, used both in the window and in the PDF: the
+  Chinese font of the characters (I.Ming, Noto Serif CJK HK, and new Chiron
+  Hei HK, GenSenRounded TW and JyunsaiKaai) and the Jyutping font of the
+  readings (Latin Modern Roman, and new Andika, Atkinson Hyperlegible, Source
+  Sans 3 and Source Serif 4), with a sample. They are listed in
+  `py/fonts.json`, which `vendor.mjs`, `py/app.py` and the interface all read,
+  and each is pinned by sha256.
+- A character the chosen Chinese font lacks is printed in the first of the
+  other Chinese fonts that has it, marked in the preview with a dashed orange
+  box that names both fonts and listed after Generate PDF; a dashed red box
+  now means that the character prints as a blank, since no Chinese font has
+  it or, for Latin text, which has no fallback, its font lacks it. The check follows
+  xeCJK's own character classes, so curly quotes and full-width punctuation
+  are checked against the Chinese font and Latin letters against Latin
+  Modern or, in the Jyutping column, the Jyutping font.
+- The fonts' copyright lines and licence texts (`tex/fonts/`), which the app
+  now ships next to the fonts.
+- Settings, opened by the gear next to Corrections, with three new PDF options:
+  evenly spaced characters (on), fancy Jyutping (on) and each section on its
+  own page (off). Even spacing sets xjyutping's `width` to the widest
+  Jyutping of the lesson, measured at `\begin{document}` with the package's
+  own ruby box (`\__xjyutping_ruby:nn`), since `width=auto` does nothing
+  for `\xjyutping{..}{..}`. The fancy tone numbers need
+  `lmroman5-regular.otf`, now in `tex/tl2024/`.
+- Fancy Jyutping in the preview, a separate switch under Settings, Preview
+  (on), kept with the text size in the app's settings. The strokes are drawn
+  as inline SVG with the geometry of xjyutping's fancy option.
+
+### Changed
+
+- The students' language and the tone chart moved from the preview toolbar
+  into Settings.
+- The xjyutping LaTeX package is version 1.5.2, which keeps the spacing of a
+  character at the end of a group, such as each entry's
+  `\xjyutping{..}{..}`, even under XeLaTeX.
+- `scripts/compile-check.sh` also compiles the fixture once with each other
+  font, and fails when a character prints as a blank. The self-test of the
+  built app also loads every bundled font in its window, and fails if one is
+  refused.
+
+### Fixed
+
+- The header of the blank column (English, 普通話, 筆記) is centred like the
+  other two.
+
 ## [1.2.1] - 2026-10-03
 
 ### Changed
@@ -109,8 +158,9 @@ This repository holds the teaching tool, and the table below lists its files.
 | --- | --- |
 | `src/App.svelte`, `src/components/`, `src/lib/`, `src/app.css` | The interface in Svelte 5: the layout, the parts of the window, the state and the design tokens (Section 7). |
 | `py/app.py` | The bridge to xjyutping-py: readings with corrections, sorting, candidates, checks and the LaTeX source (Sections 2.2 and 2.3). |
-| `py/test_app.py` | The tests of `app.py` (39 tests). |
-| `py/glyphs.txt` | The code points that I.Ming or Noto Serif CJK HK contain, made once by `scripts/glyphs.py`. |
+| `py/test_app.py` | The tests of `app.py` (44 tests). |
+| `py/fonts.json`, `py/glyphs/` | The fonts the teacher chooses from, pinned by sha256, and the code points of each, made by `scripts/glyphs.py` (Section 9.3). |
+| `tex/fonts/` | The fonts' copyright lines and licence texts, shipped in the app. |
 | `src-tauri/src/main.rs` | The Rust commands: compile with Tectonic, open and save lessons, export corrections and the self-test (Section 2.7). |
 | `src-tauri/icons/icon-source.png` | The source of every app icon (Section 6.4). |
 | `src-tauri/tauri.conf.json`, `capabilities/default.json` | The app, its bundle (sidecar, resources) and what the window may call. |
@@ -257,7 +307,7 @@ process, so the script deletes the index before each run. The app runs
 ### 2.6 Building
 
 `vendor.mjs` runs before `vite` and `vite build`. It copies the Pyodide
-runtime, zips `app.py`, `glyphs.txt`, `versions.json` and the xjyutping package
+runtime, zips `app.py`, `fonts.json`, `glyphs/`, `versions.json` and the xjyutping package
 into `public/py.zip` (stored, so that Tauri's brotli compresses the tables),
 assembles `src-tauri/resources/texbundle/` with a `SHA256SUM` (Tectonic keys
 its format cache on it) and places the Tectonic binary for the target triple.
@@ -324,8 +374,13 @@ universal app reported Python loaded in 1.2 s, the corrected readings (銀行
 - A sentence whose row is taller than a page cannot break across pages
   (`longtable` rows do not split), so it moves to the next page whole.
 - The app is not signed, so macOS and Windows ask once before opening it.
-- Characters that neither font contains print as a blank; they are marked
-  before generating and listed after it.
+- Characters that no bundled Chinese font contains print as a blank; they
+  are marked before generating and listed after it. Latin letters have no
+  fallback, so a letter that Latin Modern or the Jyutping font lacks (such as
+  α) prints as a blank too.
+- JyunsaiKaai, the only open Kai font with Hong Kong school forms, has been
+  unmaintained since 2024 and covers fewer rare characters than the others;
+  those come from the fallback fonts.
 
 ## 5. How to test
 
@@ -341,10 +396,10 @@ scripts/compile-check.sh
 cd src-tauri && cargo test
 ```
 
-The first runs the 39 tests of `app.py`, the second compiles the fixture for
-both audiences with the bundled engine from an empty cache without network
-and renders the pages to `.downloads/check/`. The third tests the Rust
-helpers.
+The first runs the 44 tests of `app.py`, the second compiles the fixture for
+the three audiences and once with each other font with the bundled engine
+from an empty cache without network and renders the pages to
+`.downloads/check/`. The third tests the Rust helpers.
 
 ## 6. Version 1.1.0 (2026-10-03)
 
@@ -498,3 +553,64 @@ import of the store files. The old and the new `py/app.py` gave the same
 output for `render`, 224 candidate lists, 200,000 code points of the glyph
 lookup, 14 line edits and the six LaTeX sources, and the universal build
 passed its self-test.
+
+## 9. Version 1.3.0: settings and fonts (2026-10-13)
+
+### 9.1 The requests
+
+The user asked for a settings panel with three PDF options (each part on its
+own page, fancy Jyutping as in the LaTeX package, evenly spaced or tightly
+packed characters), a separate switch for fancy Jyutping in the preview, a
+centred blank column, a choice of the Chinese and the Jyutping font for both
+the window and the PDF with an error for characters the font lacks, which was
+then changed into a fallback that is noted but never stops the PDF, and the
+release of xjyutping-tex 1.5.2 in a new version of the tool.
+
+### 9.2 Even spacing and page breaks
+
+`width=auto` of xjyutping measures the rubies of a block, but a manual
+`\xjyutping{<entry>}{<readings>}` keeps the width it has. The preamble
+therefore measures every syllable of the lesson at `\Large` with the
+package's internal `\__xjyutping_ruby:nn` at `\begin{document}` and sets
+`width` to the widest, so fancy marks count. The internal macro is the one
+coupling to the package's internals; if it is renamed, the compile check and
+the self-test fail with a TeX error. Separate pages put `\clearpage` before
+every section but the first, so the characters stay with the title and the
+tone chart.
+
+### 9.3 The fonts
+
+Fifteen agents downloaded, measured and test-compiled 33 candidate fonts with
+two scripts that are not part of the repository: one counted coverage of the
+30,089 characters with readings, the 18,083 with a known frequency, the 5,066
+frequent ones outside Big5 (嘅咗啲喺嚟…) and the character tokens of
+HKCanCor, and one compiled a test page with the app's own Tectonic offline.
+A second agent per recommended font downloaded it again and tried to refute
+the recommendation (hash, licence text, one static face, compile). The
+choices were one font per style: Chiron Hei HK (Hong Kong forms, 100% of the
+frequent characters), GenSenRounded TW and JyunsaiKaai, the only open Kai
+with Hong Kong school forms. LXGW WenKai TC was left out because it merges
+variants, so that 教 prints as 敎 and 值 as 値; TW-Kai and TW-Sung keep their
+Plane 2 characters in separate files; Edukai is CC BY-ND with an extra
+written-application clause.
+
+The code points xeCJK 3.9 sets in the CJK font (its classes CJK, FullLeft,
+FullRight and HangulJamo with the template's extra CJK ranges) were read
+from `\XeTeXcharclass` for every code point up to U+3FFFF and are the 29
+ranges of `CJK_FONT_RANGES` in `py/app.py`. xeCJK takes a list of fallback
+fonts and initialises each only when a character first needs it, so the
+other Chinese fonts are declared in the order of `py/fonts.json` at no cost
+for lessons that need none of them, and only the fonts used are embedded.
+
+### 9.4 Review
+
+Before the release, four agents reviewed the changes and two more tried to
+refute each finding. Confirmed and fixed: Tauri's asset protocol allowed only
+the two fonts of 1.2 (`assetProtocol.scope` in `tauri.conf.json`), so the
+window could not show any other font, which the self-test now catches (2 of
+10 fonts before the fix, 10 of 10 after); on Windows the job list of
+`compile-check.sh` ended in a carriage return; `LICENSE` did not list the new
+fonts; xeCJK's CM marks (U+302A to 302F, U+3099 and 309A), which it sets in
+the Chinese font without fallback, and private-use characters were not
+checked; and a failed font load left the previous font on screen.
+
