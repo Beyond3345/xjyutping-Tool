@@ -176,7 +176,10 @@ be sent to the maintainer through the
 [issues of xjyutping-tex](https://github.com/Beyond3345/xjyutping-tex/issues).
 Each record holds the word or character, the reading xjyutping gave, the
 corrected reading, the line it was corrected in and the versions used, and
-nothing leaves the computer unless the teacher sends the file.
+nothing leaves the computer unless the teacher sends the file. Once the file
+is sent, "Clear history" deletes the recorded corrections from the computer,
+after asking, so that the next export holds only new ones. The corrections in
+the lessons themselves stay.
 
 ## How it works
 

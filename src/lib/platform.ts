@@ -54,6 +54,15 @@ export async function askSaveDiscard(): Promise<'Save' | 'Discard' | 'Cancel'> {
   return 'Cancel'
 }
 
+/** asks before the corrections recorded for the maintainer are deleted */
+export async function askClearHistory(n: number) {
+  const text = `Delete the ${n} recorded correction(s) from this computer? Export them first if they have not been `
+    + 'sent to the maintainer. The corrections in your lessons stay.'
+  if (!TAURI) return confirm(text)
+  const res = await message(text, { title: 'xjyutping-Tool', kind: 'warning', buttons: { ok: 'Clear history', cancel: 'Cancel' } })
+  return res === 'Clear history'
+}
+
 export function setWindowTitle(title: string) {
   if (TAURI) getCurrentWindow().setTitle(title)
   else document.title = title

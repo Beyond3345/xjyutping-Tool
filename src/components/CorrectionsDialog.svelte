@@ -56,7 +56,11 @@
   {/if}
 
   <footer>
-    <p>Every correction is also kept on this computer, so that it can be sent to the maintainer of xjyutping.</p>
+    <p>Every correction is also kept on this computer, so that it can be sent to the maintainer of xjyutping.
+      After sending, Clear history deletes them here, so that they are not sent again.</p>
+    <button class="btn ghost danger" disabled={!records} onclick={async () => { await store.clearCorrections(); count() }}>
+      Clear history…
+    </button>
     <button class="btn primary" disabled={!records || !TAURI} onclick={exportAll}>
       Export all corrections ({records})…
     </button>
@@ -134,16 +138,21 @@
   }
   footer {
     display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
     align-items: center;
-    gap: 16px;
+    gap: 12px;
     padding: 14px 20px 18px;
     margin-top: 8px;
     border-top: 1px solid var(--border);
   }
   footer p {
-    flex: 1;
+    flex-basis: 100%;
     margin: 0;
     font-size: 12.5px;
     color: var(--text-2);
+  }
+  .danger:not(:disabled) {
+    color: var(--missing);
   }
 </style>

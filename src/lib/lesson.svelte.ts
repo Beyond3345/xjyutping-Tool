@@ -4,7 +4,7 @@
 // what the teacher chose and keeps the corrections database in step.
 import { tick } from 'svelte'
 import { python, startPython } from './python'
-import { TAURI, kv, appVersion, commands, askSaveDiscard, setFullscreen, loadFont, type KV } from './platform'
+import { TAURI, kv, appVersion, commands, askSaveDiscard, askClearHistory, setFullscreen, loadFont, type KV } from './platform'
 import type { Font, Item, Kind, Lesson, PdfOption, Row } from './types'
 import fontList from '../../py/fonts.json'
 
@@ -360,10 +360,19 @@ class Store {
       records: records.map(([, v]) => v) }, null, 1)
     try {
       const saved = await commands.exportCorrections(contents, `xjyutping-corrections-${day}.json`)
-      if (saved) this.notify(`Saved ${records.length} corrections to ${saved}; please send this file to the maintainer.`)
+      if (saved) this.notify(`Saved ${records.length} corrections to ${saved}; please send this file to the maintainer, `
+        + 'then Clear history in Corrections, so that they are not sent again.', false, true)
     } catch (e) {
       this.notify(`The corrections could not be saved: ${e}`, true)
     }
+  }
+
+  /** empties the record kept for the maintainer, after asking; the lessons keep their corrections */
+  async clearCorrections() {
+    const records = await this.#db.entries()
+    if (!records.length || !(await askClearHistory(records.length))) return
+    for (const [key] of records) await this.#db.delete(key)
+    this.notify(`Cleared ${records.length} recorded corrections from this computer.`)
   }
 
   // --- the PDF ------------------------------------------------------------------------

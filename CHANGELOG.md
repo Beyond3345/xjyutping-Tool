@@ -23,6 +23,15 @@ human or agent.
 There are no unreleased changes yet. Add new entries here under
 `### Added`, `### Changed`, `### Fixed` and so on.
 
+## [1.3.1] - 2026-10-13
+
+### Added
+
+- Clear history in Corrections, which deletes the corrections recorded for the
+  maintainer after asking, so that an export holds only those not yet sent.
+  The corrections in the lessons stay. The notice after an export points to
+  it.
+
 ## [1.3.0] - 2026-10-13
 
 ### Added
