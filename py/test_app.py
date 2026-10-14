@@ -276,10 +276,29 @@ def test_pdf_options():
     assert (got['fancy'], got['evenSpacing'], got['separatePages']) == (True, True, True)
 
 
+def installed(font):
+    """An installed font's code points, from its file in the workspace's fonts/ (not in git), as the app reports them."""
+    found = sorted(Path(__file__).resolve().parents[2].joinpath('fonts').rglob(font['file']))
+    if not found:
+        return False
+    from fontTools.ttLib import TTFont
+    cps = sorted(TTFont(found[0]).getBestCmap())
+    ranges = [[cps[0], cps[0]]]
+    for c in cps[1:]:
+        if c == ranges[-1][1] + 1:
+            ranges[-1][1] = c
+        else:
+            ranges.append([c, c])
+    app.set_glyphs(font['id'], json.dumps(ranges))
+    return True
+
+
 def test_every_font_prints_the_template_and_jyutping():
     fixed = ''.join(v if isinstance(v, str) else ''.join(v.values()) for t in app.TEXT.values() for v in t.values())
     fixed += ''.join(t[7] for t in app.TONES) + '年月日：'
     for font in app.FONTS.values():
+        if font.get('system') and not installed(font):
+            continue
         chars = fixed if font['kind'] == 'chinese' else 'abcdefghijklmnopqrstuvwxyz0123456789 ,.!?;:()"~-'
         lacking = [c for c in chars if not c.isspace() and not app._in(app._glyph_ranges(font['id']), c)]
         assert not lacking, (font['id'], lacking)
@@ -307,7 +326,8 @@ def test_characters_the_chosen_font_lacks():
     assert (it[0]['nofont'], it[1]['nofont'], it[1]['printedIn']) == (None, 'noto-serif-hk', 'iming')
     # the PDF is still made, with the other Chinese fonts as fallbacks in the order of fonts.json
     body = tex('兿好', title='兿')
-    others = ', '.join('{%s}' % f['file'] for f in app.FONTS.values() if f['kind'] == 'chinese' and f['id'] != 'iming')
+    others = ', '.join('{%s}' % f['file'] for f in app.FONTS.values()
+                       if f['kind'] == 'chinese' and not f.get('system') and f['id'] != 'iming')
     assert '\\usepackage[AutoFallBack=true]{xeCJK}' in body and f'\\setCJKfallbackfamilyfont{{\\CJKrmdefault}}{{{others}}}' in body
     # Latin text goes to Latin Modern, without fallback, and in the tables also to the
     # Jyutping font; full-width punctuation and curly quotes go to the Chinese font
@@ -327,3 +347,25 @@ def test_marks_private_use_and_malformed_fonts():
     assert rows('好︀')[0]['items'][1]['nofont'] is None
     got = json.loads(app.clean(json.dumps(lesson('x', chineseFont=[], jyutpingFont={}, audience=['en']))))['lesson']
     assert (got['chineseFont'], got['jyutpingFont'], got['audience']) == ('iming', 'latin-modern', 'en')
+
+
+def test_installed_fonts():
+    font = next(f for f in app.FONTS.values() if f.get('system'))
+    try:
+        # not found: every character comes from the bundled fonts
+        app.SYSTEM_GLYPHS.pop(font['id'], None)
+        assert rows('好', chineseFont=font['id'])[0]['items'][0]['printedIn'] == 'iming'
+        app.set_glyphs(font['id'], json.dumps([[0x597D, 0x597D]]))
+        it = rows('好兿', chineseFont=font['id'])[0]['items']
+        assert (it[0]['nofont'], it[1]['nofont'], it[1]['printedIn']) == (None, font['id'], 'noto-serif-hk')
+        body = tex('好', chineseFont=font['id'])
+        assert f"\\setCJKmainfont{{{font['file']}}}" in body
+        # its licence: the PDF may be viewed and printed only, with an owner password nobody knows
+        assert re.search(r'\\begin\{document\}\n\\special\{pdf:encrypt ownerpw \([0-9a-f]{32}\) userpw \(\) length 128 perm 2052\}', body)
+        assert 'pdf:encrypt' not in tex('好') and tex('好', chineseFont=font['id']) != body
+        # an installed font is never a fallback: it may be missing on the next computer
+        assert font['file'] not in tex('好')
+        got = json.loads(app.clean(json.dumps(lesson('x', chineseFont=font['id']))))['lesson']
+        assert got['chineseFont'] == font['id']
+    finally:
+        app.SYSTEM_GLYPHS.pop(font['id'], None)

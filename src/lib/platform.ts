@@ -7,6 +7,7 @@ import { resolveResource } from '@tauri-apps/api/path'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import { message } from '@tauri-apps/plugin-dialog'
 import { load } from '@tauri-apps/plugin-store'
+import type { Font } from './types'
 
 export const TAURI = '__TAURI_INTERNALS__' in window
 
@@ -33,16 +34,21 @@ export async function kv(name: string): Promise<KV> {
 
 export const appVersion = () => (TAURI ? getVersion() : Promise.resolve('browser'))
 
+const fontRef = (f: Font) => ({ postscript: f.postscript, hint: f.hint, file: f.file })
+
 export const commands = {
-  exportPdf: (tex: string, name: string) =>
-    invoke<{ path: string | null; missing: string[] }>('export_pdf', { tex, name }),
+  /** fonts: the installed fonts the TeX source uses, copied next to it to compile */
+  exportPdf: (tex: string, name: string, fonts: Font[]) =>
+    invoke<{ path: string | null; missing: string[] }>('export_pdf', { tex, name, fonts: fonts.map(fontRef) }),
   openLesson: () => invoke<[string, string] | null>('open_lesson'),
   saveLesson: (contents: string, name: string, path: string | null) =>
     invoke<string | null>('save_lesson', { contents, name, path }),
   exportCorrections: (contents: string, name: string) =>
     invoke<string | null>('export_corrections', { contents, name }),
   selfTest: () => (TAURI ? invoke<boolean>('self_test') : Promise.resolve(false)),
-  selfTestDone: (report: string, tex: string | null) => invoke('self_test_done', { report, tex }),
+  /** jobs: the TeX sources to compile, each with the installed fonts it uses; null when the test failed */
+  selfTestDone: (report: string, jobs: { tex: string; fonts: Font[] }[] | null) =>
+    invoke('self_test_done', { report, jobs: jobs?.map(j => ({ tex: j.tex, fonts: j.fonts.map(fontRef) })) ?? null }),
 }
 
 /** asks before replacing a lesson with unsaved changes */
@@ -78,24 +84,37 @@ const wanted: Record<string, string> = {}
 /** shows a font of the PDF in the window, as the CSS variable (--chinese-font or
     --jyutping-font) that app.css uses; until it is loaded, and outside the app,
     the system fonts are used */
-export async function useFont(variable: string, file: string) {
+export async function useFont(variable: string, font: Font) {
   if (!TAURI) return
-  wanted[variable] = file
-  const ok = await loadFont(file)
+  wanted[variable] = font.file
+  const ok = await loadFont(font)
   // a later choice wins over a font that finished loading after it
-  if (wanted[variable] !== file) return
-  if (ok) document.documentElement.style.setProperty(variable, `"xjp ${file}"`)
+  if (wanted[variable] !== font.file) return
+  if (ok) document.documentElement.style.setProperty(variable, `"xjp ${font.file}"`)
   else document.documentElement.style.removeProperty(variable)
 }
 
-/** loads a font file of the texbundle (within the asset scope of tauri.conf.json) as the family "xjp <file>" */
-export function loadFont(file: string) {
-  if (!faces.has(file)) {
-    faces.set(file, (async () => {
-      const face = new FontFace(`xjp ${file}`, `url("${convertFileSrc(await resolveResource(`texbundle/${file}`))}")`)
-      document.fonts.add(await face.load())
+/** loads a font as the family "xjp <file>": a bundled one from the texbundle (within the
+    asset scope of tauri.conf.json), an installed one from the bytes the app reads; a font
+    that fails (one not installed yet) is tried again next time */
+export function loadFont(font: Font) {
+  if (!faces.has(font.file)) {
+    faces.set(font.file, (async () => {
+      const source = font.system
+        ? await invoke<ArrayBuffer>('system_font_data', { postscript: font.postscript, hint: font.hint })
+        : `url("${convertFileSrc(await resolveResource(`texbundle/${font.file}`))}")`
+      document.fonts.add(await new FontFace(`xjp ${font.file}`, source).load())
       return true
-    })().catch(() => false))
+    })().catch(() => {
+      faces.delete(font.file)
+      return false
+    }))
   }
-  return faces.get(file)!
+  return faces.get(font.file)!
+}
+
+/** where an installed font is and the code points it has, or null if it is not installed */
+export async function systemFont(font: Font) {
+  if (!TAURI) return null
+  return invoke<{ path: string; ranges: [number, number][] } | null>('system_font', { postscript: font.postscript, hint: font.hint })
 }

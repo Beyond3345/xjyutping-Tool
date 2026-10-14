@@ -17,12 +17,24 @@
   const SAMPLE: [string, string][] = [['粵', 'jyut6'], ['語', 'jyu5'], ['拼', 'ping3'], ['音', 'jam1']]
 
   let dlg: HTMLDialogElement | undefined = $state()
+  // shown in the dialog, since a notice would sit behind it
+  let fontError = $state('')
 
   $effect(() => {
     if (!dlg) return
-    if (store.settingsOpen && !dlg.open) dlg.showModal()
-    else if (!store.settingsOpen && dlg.open) dlg.close()
+    if (store.settingsOpen && !dlg.open) {
+      // a font may have been installed since
+      fontError = ''
+      store.checkInstalled()
+      dlg.showModal()
+    } else if (!store.settingsOpen && dlg.open) dlg.close()
   })
+
+  // a font that is not installed is refused, and the list shows the font in use again
+  async function choose(key: 'chineseFont' | 'jyutpingFont', select: HTMLSelectElement) {
+    fontError = (await store.chooseFont(key, select.value)) ?? ''
+    if (fontError) select.value = store.lesson[key]
+  }
 </script>
 
 <dialog bind:this={dlg} onclose={() => (store.settingsOpen = false)} aria-labelledby="settings-title">
@@ -38,14 +50,18 @@
     {#each FONT_CHOICES as [key, kind, label] (key)}
       <li>
         <label class="name" for="font-{kind}">{label}</label>
-        <select id="font-{kind}" value={store.lesson[key]} onchange={e => store.set(key, e.currentTarget.value)}>
-          {#each FONTS.filter(f => f.kind === kind) as f (f.id)}<option value={f.id}>{f.name} · {f.style}</option>{/each}
+        <select id="font-{kind}" value={store.lesson[key]} onchange={e => choose(key, e.currentTarget)}>
+          {#each FONTS.filter(f => f.kind === kind) as f (f.id)}<option value={f.id}>{f.name} · {f.style}{f.system
+            ? (store.installed[f.id] ? ' · installed by you' : ' · not installed') : ''}</option>{/each}
         </select>
       </li>
     {/each}
+    {#if fontError}<li><p class="error" role="alert">{fontError}</p></li>{/if}
     <li>
       <span class="sample" lang="zh-HK">{#each SAMPLE as [c, j]}<ruby>{c}<rt>{j}</rt></ruby>{/each}</span>
-      <p>On screen and in the PDF. A character the Chinese font lacks is printed in another of these fonts and has an orange dashed box.</p>
+      <p>On screen and in the PDF. A character the Chinese font lacks is printed in another of the bundled fonts and has an orange dashed box.
+        {FONTS.filter(f => f.system).map(f => f.name).join(' and ')} are commercial fonts the app may not include; they work once
+        you install them on this computer.</p>
     </li>
   </ul>
   <h3>Preview</h3>
@@ -153,6 +169,9 @@
     font-family: var(--font-jyutping);
     font-size: 0.42em;
     color: var(--text-2);
+  }
+  p.error {
+    color: var(--missing);
   }
   p {
     flex-basis: 100%;

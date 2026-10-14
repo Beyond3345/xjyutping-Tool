@@ -48,8 +48,11 @@ export type Lesson = {
   kinds: Record<string, Kind>
 }
 
-/** a font of py/fonts.json */
-export type Font = { id: string; kind: 'chinese' | 'jyutping'; name: string; style: string; file: string; default?: boolean }
+/** a font of py/fonts.json; a system font is a commercial one the teacher installs */
+export type Font = {
+  id: string; kind: 'chinese' | 'jyutping'; name: string; style: string; file: string; default?: boolean
+  system?: boolean; postscript?: string; hint?: string; vendor?: string
+}
 
 export type Candidates = { given: string[]; auto: string | null; all: string[] }
 export type Check = { value: string; valid: boolean; known: boolean }

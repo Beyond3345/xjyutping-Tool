@@ -13,6 +13,7 @@ import functools
 import json
 import os
 import re
+import secrets
 import unicodedata
 from pathlib import Path
 
@@ -50,8 +51,10 @@ def _known_syllables():
 # the fonts the teacher chooses from (py/fonts.json): a Chinese font for the
 # characters and a Jyutping font for the readings; Latin text of the lines is
 # set in Latin Modern, the document font. A character the Chinese font lacks is
-# printed in the first of the other Chinese fonts, in the order of the file,
-# that has it.
+# printed in the first of the other bundled Chinese fonts, in the order of the
+# file, that has it. Fonts marked "system" are commercial fonts the teacher
+# installs; the app reports which code points they have (set_glyphs) and copies
+# them next to the lesson to compile it, and they are never fallbacks.
 FONTS = {f['id']: f for f in json.loads(Path(__file__).with_name('fonts.json').read_text(encoding='utf8'))}
 DEFAULT_FONTS = {f"{f['kind']}Font": f['id'] for f in FONTS.values() if f.get('default')}
 LATIN = next(f['id'] for f in FONTS.values() if f.get('texlive'))
@@ -73,9 +76,23 @@ def _in(ranges, ch):
     return k < len(ranges) and ranges[k][0] <= cp
 
 
-@functools.cache
+SYSTEM_GLYPHS = {}
+
+
+def set_glyphs(font, ranges_json):
+    """The code point ranges of an installed font, as the app found them."""
+    SYSTEM_GLYPHS[font] = [tuple(r) for r in json.loads(ranges_json)]
+
+
 def _glyph_ranges(font):
-    """The code point ranges font can print, from glyphs/<id>.txt (scripts/glyphs.py)."""
+    """The code point ranges font can print; none for an installed font the app
+    has not found."""
+    return SYSTEM_GLYPHS.get(font, []) if FONTS[font].get('system') else _bundled_ranges(font)
+
+
+@functools.cache
+def _bundled_ranges(font):
+    """The code point ranges of a bundled font, from glyphs/<id>.txt (scripts/glyphs.py)."""
     ranges = []
     for row in Path(__file__).with_name('glyphs').joinpath(f'{font}.txt').read_text().split():
         lo, _, hi = row.partition('-')
@@ -89,7 +106,7 @@ def _fonts(lesson):
 
 
 def _fallbacks(fonts):
-    return [f for f, v in FONTS.items() if v['kind'] == 'chinese' and f != fonts['chineseFont']]
+    return [f for f, v in FONTS.items() if v['kind'] == 'chinese' and not v.get('system') and f != fonts['chineseFont']]
 
 
 def _lacking(ch, fonts, jyutping=False):
@@ -542,8 +559,13 @@ def make_tex(lesson_json):
     if chart:
         preamble += CHART_PACKAGES + _tone_chart(text, audience == 'en')
         body.insert(0, f"\\section*{{{text['tones']}}}\n\\tonechart\n")
+    # A commercial font's licence allows sharing a document that embeds it only when
+    # it can be viewed and printed but not edited or the font taken out: print-only
+    # permissions, with an owner password nobody knows.
+    protect = (rf"\special{{pdf:encrypt ownerpw ({secrets.token_hex(16)}) userpw () length 128 perm 2052}}" + '\n'
+               if FONTS[fonts['chineseFont']].get('system') else '')
     return (preamble
             + f"\\title{{{escape(lesson.get('title', ''))}}}\n"
             + f"\\author{{{escape(lesson.get('author', ''))}}}\n"
             + f"\\date{{{escape(_date(lesson))}}}\n"
-            + '\\begin{document}\n\\maketitle\n\n' + '\n'.join(body) + '\\end{document}\n')
+            + '\\begin{document}\n' + protect + '\\maketitle\n\n' + '\n'.join(body) + '\\end{document}\n')

@@ -34,7 +34,8 @@ following, each under its own licence and not covered by the MIT licence.
 - Pyodide (https://pyodide.org): Mozilla Public License 2.0.
 - Tectonic 0.17.0 (https://tectonic-typesetting.github.io): MIT licence.
 - The TeX Live 2024 files in tex/tl2024/: see tex/NOTICE.md.
-- The fonts of py/fonts.json, unmodified: I.Ming 8.10 under the IPA Font
+- The bundled fonts of py/fonts.json, unmodified (not those marked "system",
+  commercial fonts the teacher installs): I.Ming 8.10 under the IPA Font
   License Agreement v1.0; Noto Serif CJK HK, Chiron Hei HK, GenSenRounded TW,
   JyunsaiKaai, Andika, Atkinson Hyperlegible, Source Sans 3 and Source Serif 4
   under the SIL Open Font License 1.1; Latin Modern under the GUST Font

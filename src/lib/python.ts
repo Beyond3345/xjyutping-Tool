@@ -23,4 +23,6 @@ export const python = {
     JSON.parse(py.migrate(json(lesson), oldText)),
   makeTex: (lesson: Lesson): string => py.make_tex(json(lesson)),
   versions: (): Record<string, string> => JSON.parse(py.versions()),
+  // before Python has started there is nowhere to put them; init() gives them again once it has
+  setGlyphs: (font: string, ranges: [number, number][]) => void py?.set_glyphs(font, json(ranges)),
 }

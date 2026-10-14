@@ -4,7 +4,7 @@
 // what the teacher chose and keeps the corrections database in step.
 import { tick } from 'svelte'
 import { python, startPython } from './python'
-import { TAURI, kv, appVersion, commands, askSaveDiscard, askClearHistory, setFullscreen, loadFont, type KV } from './platform'
+import { TAURI, kv, appVersion, commands, askSaveDiscard, askClearHistory, setFullscreen, loadFont, systemFont, type KV } from './platform'
 import type { Font, Item, Kind, Lesson, PdfOption, Row } from './types'
 import fontList from '../../py/fonts.json'
 
@@ -12,6 +12,10 @@ export const KIND_LABEL: Record<Kind, string> = { char: 'Character', word: 'Word
 export const FONTS = fontList as Font[]
 export const fontById = (id: string) => FONTS.find(f => f.id === id)!
 const defaultFont = (kind: Font['kind']) => FONTS.find(f => f.kind === kind && f.default)!.id
+
+/** the message for a commercial font that is not installed on this computer */
+export const notInstalled = (f: Font) => `${f.name} is not installed on this computer. It is a commercial font `
+  + `(${f.vendor}) that the app may not include, so you must buy and install it yourself, then choose it again in Settings.`
 const KIND_ORDER: (Kind | undefined)[] = [undefined, 'char', 'word', 'sentence']
 
 // --- positions within a row ---------------------------------------------------
@@ -86,6 +90,8 @@ class Store {
   editor = $state<Editor | null>(null)
   dialog = $state(false)
   settingsOpen = $state(false)
+  /** for each font the teacher installs (system fonts): whether it is on this computer */
+  installed = $state<Record<string, boolean>>({})
   toast = $state<{ text: string; error: boolean } | null>(null)
   flash = $state<number[]>([])
 
@@ -107,6 +113,8 @@ class Store {
   /** the parts of the lesson that py/app.py reads to render (and to offer candidates) */
   readingInput(): Lesson {
     const { text, words, spots, kinds, chineseFont, jyutpingFont } = this.lesson
+    // read so that the rows follow an installed font once it is found
+    void this.installed[chineseFont]
     return $state.snapshot({ text, words, spots, kinds, chineseFont, jyutpingFont }) as Lesson
   }
 
@@ -136,7 +144,9 @@ class Store {
       this.loadError = String(e)
       return
     }
+    await this.checkInstalled()
     this.ready = true
+    this.#warnNotInstalled()
     // text typed while Python was loading is taken in now
     if (this.#pending !== null && this.#pending !== this.lesson.text) this.textChanged(this.#pending)
     if (testing) this.#selfTest(performance.now() - start)
@@ -149,20 +159,90 @@ class Store {
     const sample: Lesson = { ...blank(null), title: 'self-test', toneChart: true, text: '銀行\n佢𠮶度好多人。\n我哋去銀行。',
       words: { 銀行: 'ngan4 haang4' }, spots: { '佢𠮶度好多人。': { 1: 'go2' } } }
     const v = this.#versions
-    const loaded = await Promise.all(FONTS.map(f => loadFont(f.file)))
+    const bundled = FONTS.filter(f => !f.system)
+    const loaded = await Promise.all(bundled.map(f => loadFont(f)))
     const report = [`app ${v.app}, xjyutping-py ${v.xjyutping_py}, xjyutping-tex ${v.xjyutping_tex}`,
       `python loaded in ${Math.round(loadMs)} ms`]
-    const refused = FONTS.map(f => f.file).filter((_, k) => !loaded[k])
-    report.push(`fonts loaded in the window: ${FONTS.length - refused.length} of ${FONTS.length}`)
+    const refused = bundled.map(f => f.file).filter((_, k) => !loaded[k])
+    report.push(`fonts loaded in the window: ${bundled.length - refused.length} of ${bundled.length}`)
     if (refused.length) return void commands.selfTestDone([...report, `failed: fonts ${refused.join(', ')}`].join('\n'), null)
+    // the commercial fonts installed on this computer (none on the CI runners): shown in the
+    // window, and each typesets the sample below
+    const mine = FONTS.filter(f => f.system && this.installed[f.id])
+    const shown = await Promise.all(mine.map(f => loadFont(f)))
+    report.push(`installed fonts: ${mine.map((f, k) => `${f.name} (${shown[k] ? 'shown' : 'NOT shown'} in the window)`).join(', ') || 'none'}`)
+    if (shown.some(ok => !ok)) return void commands.selfTestDone([...report, 'failed: an installed font'].join('\n'), null)
+    // the preview scrolls a lesson longer than the window (shown, not saved to the draft)
+    this.lesson.text = Array.from({ length: 80 }, (_, k) => `銀行${k}`).join('\n')
+    await tick()
+    await new Promise(r => setTimeout(r, 300))
+    const rows = document.querySelector<HTMLElement>('section[aria-label=Preview] .rows')!
+    rows.scrollTop = 200
+    const box = rows.getBoundingClientRect()
+    const scrolls = rows.scrollTop > 0 && box.bottom <= innerHeight + 1
+    report.push(`preview: ${Math.round(box.height)} px shown of ${rows.scrollHeight} px in a ${innerHeight} px window, `
+      + `${scrolls ? 'scrolls' : 'does not scroll'}`)
+    // and so does the text on the left
+    const area = document.querySelector<HTMLTextAreaElement>('section[aria-label="Lesson text"] textarea')!
+    area.scrollTop = 200
+    const typed = area.scrollTop > 0 && area.getBoundingClientRect().bottom <= innerHeight + 1
+    report.push(`text: ${area.clientHeight} px shown of ${area.scrollHeight} px, ${typed ? 'scrolls' : 'does not scroll'}`)
+    if (!scrolls || !typed) return void commands.selfTestDone([...report, 'failed: a pane does not scroll'].join('\n'), null)
     try {
       for (const row of python.render(sample)) {
         report.push(`${row.line}: ${row.items.filter(i => i.cjk).map(i => i.r).join(' ')} (${row.kind})`)
       }
-      commands.selfTestDone(report.join('\n'), python.makeTex(sample))
+      for (const f of mine) {
+        const other = python.render({ ...sample, chineseFont: f.id }).flatMap(r => r.items.filter(it => it.printedIn))
+        report.push(`${f.name}: from other fonts ${other.map(it => `${it.c} (${fontById(it.printedIn!).name})`).join(', ') || 'none'}`)
+      }
+      commands.selfTestDone(report.join('\n'), [{ tex: python.makeTex(sample), fonts: [] },
+        ...mine.map(f => ({ tex: python.makeTex({ ...sample, chineseFont: f.id }), fonts: [f] }))])
     } catch (e) {
       commands.selfTestDone([...report, `failed: ${e}`].join('\n'), null)
     }
+  }
+
+  // --- fonts the teacher installs -------------------------------------------------
+
+  /** finds the system fonts on this computer and gives Python the code points of those found */
+  async checkInstalled() {
+    for (const f of FONTS.filter(f => f.system)) {
+      const found = await systemFont(f).catch(() => null)
+      if (found) python.setGlyphs(f.id, found.ranges)
+      this.installed[f.id] = !!found
+    }
+  }
+
+  /** the lesson's Chinese font, if it is a system font this computer lacks */
+  #missingFont() {
+    const f = fontById(this.lesson.chineseFont)
+    return f.system && !this.installed[f.id] ? f : null
+  }
+
+  /** the not-installed message, after any notice already shown (such as dropped corrections) */
+  #warnNotInstalled() {
+    const f = this.#missingFont()
+    if (!f) return
+    const text = `${notInstalled(f)} Until then the preview shows other fonts, and Generate PDF needs it installed `
+      + 'or another font chosen in Settings.'
+    this.notify(this.toast ? `${this.toast.text} ${text}` : text, true)
+  }
+
+  #chosen: Record<string, string> = {}
+
+  /** chooses a font in Settings; a system font that is not installed is refused with the reason.
+      A choice made while an earlier one was still being checked wins over it. */
+  async chooseFont(key: 'chineseFont' | 'jyutpingFont', id: string) {
+    this.#chosen[key] = id
+    const f = fontById(id)
+    if (f.system) {
+      await this.checkInstalled()
+      if (this.#chosen[key] !== id) return null
+      if (!this.installed[id]) return notInstalled(f)
+    }
+    this.set(key, id)
+    return null
   }
 
   // --- messages and saving the draft -------------------------------------------
@@ -387,19 +467,27 @@ class Store {
       return
     }
     if (!TAURI) return this.notify('Generate needs the installed app.', true)
-    // the characters another font prints, as they are now
-    const swapped = this.lacking.filter(it => it.printedIn)
+    if (this.exporting) return
     this.exporting = true
-    this.notify('Generating… (the first time also prepares the TeX engine, which takes longer)')
     try {
-      const res = await commands.exportPdf(python.makeTex($state.snapshot(this.lesson) as Lesson), this.lesson.title || 'lesson')
+      // a font installed or removed since the app started
+      await this.checkInstalled()
+      const absent = this.#missingFont()
+      if (absent) return this.notify(notInstalled(absent), true)
+      const chosen = fontById(this.lesson.chineseFont)
+      // the characters another font prints, as they are now
+      const swapped = this.lacking.filter(it => it.printedIn)
+      this.notify('Generating… (the first time also prepares the TeX engine, which takes longer)')
+      const res = await commands.exportPdf(python.makeTex($state.snapshot(this.lesson) as Lesson), this.lesson.title || 'lesson',
+        chosen.system ? [chosen] : [])
       if (!res.path) return this.notify('The PDF was not saved.')
       const replaced = [...new Set(swapped.map(it => it.c))]
       const fonts = [...new Set(swapped.map(it => fontById(it.nofont!).name))]
       this.notify(`Saved ${res.path}`
         + (replaced.length ? `. Not in ${fonts.join(' or ')}, printed in another font: ${replaced.join(' ')}` : '')
-        + (res.missing.length ? `. In no font, printed blank: ${res.missing.join(' ')}` : ''),
-        false, replaced.length + res.missing.length > 0)
+        + (res.missing.length ? `. In no font, printed blank: ${res.missing.join(' ')}` : '')
+        + (chosen.system ? `. As the licence of ${chosen.name} requires, the PDF can be viewed and printed but not edited or copied from` : ''),
+        false, replaced.length + res.missing.length > 0 || !!chosen.system)
     } catch (e) {
       this.notify(String(e).trim().split('\n').pop()!, true)
     } finally {
@@ -468,9 +556,12 @@ class Store {
     if (!file) return
     try {
       const res = python.clean(file[1])
+      // a font may have been installed since the app started
+      await this.checkInstalled()
       this.#replace({ ...blank(this.lesson), ...res.lesson, format: 1 }, file[0])
       if (res.dropped.length) this.notify(`Opened; dropped invalid corrections: ${res.dropped.join(', ')}`, false, true)
       else this.notify(`Opened ${file[0]}`)
+      this.#warnNotInstalled()
     } catch {
       this.notify('This file is not an xjyutping-Tool lesson.', true)
     }

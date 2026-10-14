@@ -23,6 +23,32 @@ human or agent.
 There are no unreleased changes yet. Add new entries here under
 `### Added`, `### Changed`, `### Fixed` and so on.
 
+## [1.3.2] - 2026-10-14
+
+### Added
+
+- Ku Mincho (Kowloon Type) and Prison Gothic (Road Research Society) as
+  Chinese fonts. Their licences forbid including them in an app, so the tool
+  finds the copy the teacher installed (by PostScript name, in the font folders
+  of macOS and Windows), reads which characters it has, shows it in the window
+  and copies it next to the lesson only while the PDF is made (a copy left by
+  an unfinished compile is removed at the next start or compile). Choosing one
+  that is not installed shows an error asking the teacher to install it; they
+  are never used as fallbacks. As both licences require for sharing, a PDF
+  made with one is protected so that it can be viewed and printed but not
+  edited or copied from. The self-test also typesets its sample with each of
+  them that is installed, and checks that the copy is removed.
+
+### Fixed
+
+- On Windows the window opened at 1280 by 820 even on a smaller screen (such as
+  1366 by 768, or 1920 by 1080 at 150%), so that the end of both panes, and of
+  their scroll bars, was behind the taskbar and out of reach. The window now
+  opens centred and no larger than the usable part of the screen (Tauri's
+  `center` and `preventOverflow`, which shrink it rather than maximise it, so
+  restoring it does not bring the problem back). The self-test checks that the
+  window fits its screen and that both panes scroll.
+
 ## [1.3.1] - 2026-10-13
 
 ### Added

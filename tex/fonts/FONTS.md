@@ -4,7 +4,9 @@ The fonts the teacher chooses from in Settings, as listed in `py/fonts.json`.
 `scripts/vendor.mjs` downloads each one unmodified, checks it against its
 sha256 and copies it, with this folder, into the app's `texbundle`. The
 copyright lines are those of the fonts' name tables or, where these are
-incomplete, of the fonts' own licence files.
+incomplete, of the fonts' own licence files. The fonts marked `"system"` in
+`py/fonts.json` (Ku Mincho and Prison Gothic) are commercial and are not shipped:
+the app uses the copy the teacher installed.
 
 | Font | File, version | Copyright | Licence | Source |
 | --- | --- | --- | --- | --- |

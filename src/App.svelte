@@ -19,8 +19,12 @@
   })
 
   // the chosen fonts of the lesson, in the window as in the PDF
-  $effect(() => void useFont('--chinese-font', fontById(store.lesson.chineseFont).file))
-  $effect(() => void useFont('--jyutping-font', fontById(store.lesson.jyutpingFont).file))
+  // (again once an installed font is found)
+  $effect(() => {
+    void store.installed[store.lesson.chineseFont]
+    useFont('--chinese-font', fontById(store.lesson.chineseFont))
+  })
+  $effect(() => void useFont('--jyutping-font', fontById(store.lesson.jyutpingFont)))
 
   function onkeydown(e: KeyboardEvent) {
     if (e.key === 'Escape') {

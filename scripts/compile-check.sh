@@ -25,7 +25,7 @@ if command -v sandbox-exec >/dev/null; then NET=(sandbox-exec -p '(version 1)(al
 JOBS=$("$PYTHON" -c "
 import json
 fonts = json.load(open('py/fonts.json', encoding='utf8'))
-print(' '.join(['en', 'zh', 'yue'] + [f['kind'] + 'Font=' + f['id'] for f in fonts if not f.get('default')]))" | tr -d '\r')
+print(' '.join(['en', 'zh', 'yue'] + [f['kind'] + 'Font=' + f['id'] for f in fonts if not f.get('default') and not f.get('system')]))" | tr -d '\r')
 
 status=0
 for audience in $JOBS; do

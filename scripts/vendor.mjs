@@ -24,8 +24,9 @@ const FILES = {
   'x86_64-apple-darwin': [`${TECTONIC}x86_64-apple-darwin.tar.gz`, '7c90ef5b6ddb1eb1937e4337add5237b79338e4b9676459fa91187d24d6cdf80'],
   'x86_64-pc-windows-msvc': [`${TECTONIC}x86_64-pc-windows-msvc.zip`, 'f61ce51f0b0ade1015b7de7ef368541c5424e9756ecbd0d7af97d6d48030845f'],
 }
-// the fonts the teacher chooses from; those of TeX Live are already in tex/tl2024/
-const FONTS = JSON.parse(fs.readFileSync(path.join(root, 'py', 'fonts.json'), 'utf8')).filter(f => !f.texlive)
+// the fonts the teacher chooses from; those of TeX Live are already in tex/tl2024/, and those
+// marked system are commercial fonts the teacher installs
+const FONTS = JSON.parse(fs.readFileSync(path.join(root, 'py', 'fonts.json'), 'utf8')).filter(f => !f.texlive && !f.system)
 for (const f of FONTS) FILES[path.basename(new URL(f.url).pathname)] = [f.url, f.archiveSha256 ?? f.sha256]
 
 const sha256 = file => createHash('sha256').update(fs.readFileSync(file)).digest('hex')

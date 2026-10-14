@@ -12,6 +12,8 @@ ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / 'py' / 'glyphs'
 OUT.mkdir(exist_ok=True)
 for font in json.loads((ROOT / 'py' / 'fonts.json').read_text(encoding='utf8')):
+    if font.get('system'):
+        continue  # installed by the teacher; the app reads its code points
     cps = sorted(TTFont(ROOT / 'src-tauri' / 'resources' / 'texbundle' / font['file']).getBestCmap())
     ranges, start = [], cps[0]
     for a, b in zip(cps, cps[1:] + [None]):

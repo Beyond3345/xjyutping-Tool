@@ -55,6 +55,30 @@
   "licence": "SIL Open Font License 1.1"
  },
  {
+  "id": "ku-mincho",
+  "kind": "chinese",
+  "name": "Ku Mincho",
+  "style": "明朝體",
+  "file": "KuMincho-R.otf",
+  "system": true,
+  "postscript": "KuMincho-Regular",
+  "hint": "KuMincho",
+  "vendor": "Kowloon Type",
+  "licence": "commercial, installed by the teacher"
+ },
+ {
+  "id": "prison-gothic",
+  "kind": "chinese",
+  "name": "Prison Gothic",
+  "style": "黑體",
+  "file": "PrisonGothic-Md.otf",
+  "system": true,
+  "postscript": "PrisonGothic-Md",
+  "hint": "PrisonGothic",
+  "vendor": "Road Research Society, road.org.hk",
+  "licence": "commercial, installed by the teacher"
+ },
+ {
   "id": "latin-modern",
   "kind": "jyutping",
   "name": "Latin Modern Roman",

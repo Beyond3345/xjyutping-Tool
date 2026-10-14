@@ -112,6 +112,8 @@ the window and the PDF both use, with a sample.
 | Chiron Hei HK | 黑體 | Hong Kong forms |
 | GenSenRounded TW | 圓體 | rounded, common print forms |
 | JyunsaiKaai | 楷書 | Hong Kong school forms; fewer rare characters |
+| Ku Mincho | 明朝體 | commercial (Kowloon Type), installed by you |
+| Prison Gothic | 黑體 | commercial (Road Research Society), installed by you |
 
 | Jyutping font | Style |
 | --- | --- |
@@ -121,8 +123,29 @@ the window and the PDF both use, with a sample.
 | Source Sans 3 | sans |
 | Source Serif 4 | serif |
 
+Ku Mincho and Prison Gothic are commercial fonts whose licences do not allow
+an app to include them, so the tool uses the copy installed on the computer
+(in `/Library/Fonts` or `~/Library/Fonts` on macOS, and in the Fonts folder
+of Windows or of the user). Settings marks each as installed or not, and
+choosing one that is not installed shows an error asking you to buy and
+install it yourself. A lesson saved with such a font opens on a computer
+without it with the same error; the preview then shows other fonts, and
+Generate PDF needs the font installed or another one chosen. Only Chinese
+fonts can be such installed fonts. The font is copied into the app's cache
+folder for the PDF and deleted again afterwards (or, if the app was closed
+meanwhile, when it next starts or makes a PDF). Fonts installed on Windows
+as shortcuts to another folder are not found.
+
+Both licences allow a document with the font embedded to be shared only when
+its readers can view and print it but not edit it or take the font out of it.
+A PDF made with one of these fonts is therefore protected: it opens without a
+password and can be printed, but not edited or copied from. Prison Gothic's
+licence speaks of the font embedded as rasterised or outlined shapes, so read
+it before sharing such a PDF; using the fonts within their licences is the
+teacher's responsibility.
+
 A character the chosen Chinese font lacks is printed in the first of the
-other Chinese fonts, in the order above, that has it. The preview marks it
+other bundled Chinese fonts, in the order above, that has it. The preview marks it
 with a dashed orange box whose tooltip names both fonts, and Generate PDF
 lists such characters after saving. Latin letters of the lines are set in
 Latin Modern Roman, and in the Jyutping column of the tables in the Jyutping
@@ -199,9 +222,12 @@ PDF.
 - The PDF is typeset by [Tectonic](https://tectonic-typesetting.github.io)
   0.17.0, a self-contained XeTeX engine shipped inside the app, from the
   TeX Live 2024 files the template needs (`tex/tl2024/`), the xjyutping package and
-  the fonts of `py/fonts.json`. The chosen Chinese font is xeCJK's main font
-  and the other Chinese fonts are its fallbacks, which it loads only when a
-  character needs one. `py/glyphs/` holds the code points of each font, from
+  the bundled fonts of `py/fonts.json`. The chosen Chinese font is xeCJK's
+  main font and the other bundled Chinese fonts are its fallbacks, which it
+  loads only when a character needs one. An installed commercial font is found
+  by its PostScript name (`src-tauri/src/main.rs`, with ttf-parser), which also
+  reads the code points it has for `py/app.py`, gives its bytes to the window,
+  and copies it next to the lesson while Tectonic runs. `py/glyphs/` holds the code points of each font, from
   which `py/app.py` tells which characters a font lacks and which font prints
   them instead, and the window shows the chosen fonts from the same files.
   Every entry is written with `\xjyutping{<entry>}{<readings>}`, which gives
@@ -279,7 +305,12 @@ other font.
 ### Adding a font
 
 A font must be a single static face (`.ttf` or `.otf`, not variable and not a
-collection) under a licence that allows bundling it.
+collection) under a licence that allows bundling it. A commercial Chinese
+font is added instead with `"system": true`, its PostScript name
+(`postscript`), a part of its usual file name (`hint`), the name it is copied
+under to compile (`file`) and its `vendor`, and needs no download, glyph table
+or licence text. A Jyutping font cannot be a system font yet, since only the
+Chinese font is copied to compile.
 
 1. Add it to `py/fonts.json` with a pinned URL (a release asset, or a raw file
    at a commit), its sha256 and, for a font inside an archive, the archive's
@@ -302,7 +333,9 @@ collection) under a licence that allows bundling it.
   also runs before every build
 - `cargo test` in `src-tauri` tests the file name and log helpers
 - `xjyutping-Tool --self-test <file>` runs a built app, loads every bundled
-  font in its window, reads a sample lesson with corrections, compiles it with the bundled engine without asking where to
+  font in its window, checks that the window fits its screen and that the
+  preview scrolls, reads a sample lesson with corrections, compiles it (and
+  once more with each commercial font installed on the computer) with the bundled engine without asking where to
   save, writes a report to the file and quits with 0 on success (on macOS the
   program is `xjyutping-Tool.app/Contents/MacOS/xjyutping-Tool`, and CI runs
   it on Windows)
@@ -319,10 +352,12 @@ The app also ships the following, each under its own licence.
 | Tectonic | MIT |
 | TeX Live 2024 files in `tex/tl2024/` | the free licences of each package, mostly LPPL; see `tex/NOTICE.md` |
 | I.Ming 8.10 | IPA Font License Agreement 1.0 |
-| The other fonts of `py/fonts.json` | SIL Open Font License 1.1, Latin Modern under the GUST Font License |
+| The other bundled fonts of `py/fonts.json` | SIL Open Font License 1.1, Latin Modern under the GUST Font License |
 
 The fonts are bundled unmodified, with their copyright lines and licence texts
-in `tex/fonts/`, which the app also ships.
+in `tex/fonts/`, which the app also ships. Ku Mincho and Prison Gothic, marked
+`"system"` in `py/fonts.json`, are not shipped: the app uses the copies the
+teacher installed.
 
 ## Troubleshooting
 
@@ -337,9 +372,18 @@ WebView2.
 The first Generate PDF after installing prepares the TeX engine (about 5 s),
 and later ones take about 2 s.
 
+### The end of the panes cannot be scrolled to
+
+A window taller than the screen puts the end of both panes, and of their scroll
+bars, behind the taskbar or the Dock. Before 1.3.2 the window could open like
+that on Windows with a small or scaled-up screen; it now opens centred and no
+larger than the usable part of the screen. A window moved or resized past the
+edge of the screen has the same effect, and maximising it brings everything
+back.
+
 ### A character prints as a blank
 
-None of the bundled fonts contains it, which the dashed red box shows before
+None of the bundled Chinese fonts contains it, which the dashed red box shows before
 generating. The tool lists such characters after Generate PDF, and replacing
 the character with a common variant is the only fix. A Latin letter in the red
 box (such as α) is missing from Latin Modern or the Jyutping font, which have

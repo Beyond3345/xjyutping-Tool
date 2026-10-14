@@ -45,12 +45,12 @@ def main():
         job.mkdir()
         # the package, its data and the fonts sit next to the document, so they are
         # read from there and stay out of the harvested files
-        fonts = [f['file'] for f in app.FONTS.values() if not f.get('texlive')]
+        fonts = [f['file'] for f in app.FONTS.values() if not f.get('texlive') and not f.get('system')]
         for f in ['xjyutping.sty', 'xjyutping-chars.def', 'xjyutping-words.def'] + fonts:
             shutil.copy(RES / f, job / f)
         # the three audiences, then each other font, as scripts/compile-check.sh
         jobs = [{'audience': a} for a in ('en', 'zh', 'yue')] + [
-            {'audience': 'en', f"{f['kind']}Font": f['id']} for f in app.FONTS.values() if not f.get('default')]
+            {'audience': 'en', f"{f['kind']}Font": f['id']} for f in app.FONTS.values() if not f.get('default') and not f.get('system')]
         for n, settings in enumerate(jobs):
             name = f'job{n}'
             (job / f'{name}.tex').write_text(app.make_tex(json.dumps({**lesson, **settings})), encoding='utf8')
