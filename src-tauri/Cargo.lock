@@ -4869,7 +4869,7 @@ dependencies = [
 
 [[package]]
 name = "xjyutping-tool"
-version = "1.3.2"
+version = "1.3.3"
 dependencies = [
  "serde",
  "tauri",

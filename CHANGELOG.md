@@ -20,6 +20,10 @@ human or agent.
 
 ## [Unreleased]
 
+There are no unreleased changes yet.
+
+## [1.3.3] - 2026-10-22
+
 ### Fixed
 
 - On Windows the lesson text could slide out of view while typing, leaving
