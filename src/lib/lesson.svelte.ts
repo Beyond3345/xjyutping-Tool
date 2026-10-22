@@ -461,7 +461,7 @@ class Store {
     if (this.missing.length) {
       const [r, i] = this.missing[0]
       const ruby = document.querySelector(`.char[data-row="${r}"][data-i="${i}"]`)
-      ruby?.scrollIntoView({ block: 'center' })
+      ruby?.scrollIntoView({ block: 'center', container: 'nearest' })
       this.notify(`${this.missing.length} character(s) have no reading yet; click each red ? to give one.`, true)
       if (ruby) this.openEditor(r, i, ruby)
       return

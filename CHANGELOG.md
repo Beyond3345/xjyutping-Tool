@@ -20,8 +20,15 @@ human or agent.
 
 ## [Unreleased]
 
-There are no unreleased changes yet. Add new entries here under
-`### Added`, `### Changed`, `### Fixed` and so on.
+### Fixed
+
+- On Windows the lesson text could slide out of view while typing, leaving
+  only the ends of the longest lines, and come back when typing on or when
+  the window was resized. A two-finger pinch on a touchpad or touchscreen had
+  zoomed the page (Tauri turns WebView2's pinch zoom on with the zoom
+  hotkeys), and keeping the preview on the typed line then panned the whole
+  zoomed page. Pinch zoom is now off on Windows (Ctrl+= and Ctrl+- still
+  zoom), and following the typed line scrolls only the preview.
 
 ## [1.3.2] - 2026-10-14
 
@@ -648,4 +655,34 @@ window could not show any other font, which the self-test now catches (2 of
 fonts; xeCJK's CM marks (U+302A to 302F, U+3099 and 309A), which it sets in
 the Chinese font without fallback, and private-use characters were not
 checked; and a failed font load left the previous font on screen.
+
+## 10. Text sliding out of view on Windows (2026-10-22)
+
+A teacher filmed the lesson text vanishing while typing with Cangjie on
+Windows 11: only the ends of the longest lines stayed, and the text came back
+now and then. It never happened on macOS.
+
+The cause was pinch zoom. wry sets WebView2's `IsPinchZoomEnabled` from
+`zoomHotkeysEnabled` (`webview2/mod.rs` in wry), so a pinch on a touchpad or
+touchscreen magnified the page as a page scale. The layout stays as it is,
+the window shows part of the page, and that part can be panned although the
+page has no scrollbars. `follow()` in `TextPane.svelte` used
+`scrollIntoView`, which also pans this view, so each committed line panned it
+towards the preview row; Chromium's caret reveal panned it back while typing.
+`window.scrollX` and the text box's `scrollLeft` stay 0; only
+`visualViewport.offsetLeft` and `offsetTop` show the pan, which is why the
+first checks missed it. In Chrome, CDP's `Emulation.setPageScaleFactor` (or
+`Input.synthesizePinchGesture`) at 1.1 to 1.14 reproduces the video.
+
+The fix:
+- `scrollIntoView` now takes `container: 'nearest'` (Chromium 140), so only
+  the preview scrolls; `vite-env.d.ts` declares the option for TypeScript.
+- `additionalBrowserArgs` in `tauri.conf.json` adds `--disable-pinch`. This
+  option replaces wry's default arguments, so they are repeated in front of
+  it; compare them with wry's list when updating wry. Setting
+  `IsPinchZoomEnabled` from Rust was not used, as Microsoft says it applies
+  only after the next navigation, which Tauri's setup is too late for.
+
+Still to try by hand on Windows: a pinch on a touchpad and on a touchscreen
+must not magnify the page, and Ctrl+= and Ctrl+- must still zoom.
 

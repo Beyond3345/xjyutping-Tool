@@ -4,10 +4,11 @@
 
   let area: HTMLTextAreaElement
 
-  // keeps the preview on the line being typed
+  // keeps the preview on the line being typed; only the preview scrolls, as a window
+  // zoomed by a pinch on Windows would otherwise pan away from the text
   function follow() {
     const n = area.value.slice(0, area.selectionStart).split('\n').length - 1
-    document.querySelector(`.row[data-row="${n}"]`)?.scrollIntoView({ block: 'nearest' })
+    document.querySelector(`.row[data-row="${n}"]`)?.scrollIntoView({ block: 'nearest', container: 'nearest' })
   }
 
   async function changed() {
